@@ -310,6 +310,26 @@ final class HashMapTest extends TestCase
         self::assertSame('c', $map->get(new NotHashableStub('Karol', 33))->getOrElse('missing'));
     }
 
+    public function testSlidingPreservesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $windows = HashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->put(new NotHashableStub('Agata', 24), 'b')
+            ->put(new NotHashableStub('Jedrzej', 13), 'c')
+            ->sliding(2, 1);
+
+        self::assertSame(3, $windows->length());
+
+        $firstWindow = $windows->get(0);
+        // If the hasher survived sliding(), putting a "duplicate" of a key
+        // already in the window must overwrite instead of growing the map.
+        $existingKey = $firstWindow->keys()->toArray()[0];
+        $withDuplicate = $firstWindow->put(new NotHashableStub($existingKey->name, $existingKey->age), 'z');
+        self::assertSame($firstWindow->length(), $withDuplicate->length());
+    }
+
     public function testKeysPreservesTheHasher(): void
     {
         $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;

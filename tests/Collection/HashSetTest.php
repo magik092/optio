@@ -288,6 +288,27 @@ final class HashSetTest extends TestCase
         self::assertSame(1, $set->length());
     }
 
+    public function testSlidingPreservesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $windows = HashSet::ofHashed(
+            $hasher,
+            new NotHashableStub('Karol', 33),
+            new NotHashableStub('Agata', 24),
+            new NotHashableStub('Jedrzej', 13),
+        )->sliding(2, 1);
+
+        self::assertSame(3, $windows->length());
+
+        $firstWindow = $windows->get(0);
+        // If the hasher survived sliding(), adding a duplicate of an element
+        // already in the window must still dedupe instead of growing it.
+        $existing = $firstWindow->toArray()[0];
+        $withDuplicate = $firstWindow->add(new NotHashableStub($existing->name, $existing->age));
+        self::assertSame($firstWindow->length(), $withDuplicate->length());
+    }
+
     public function testMapResetsTheHasherAndThrowsOnUnhashableResult(): void
     {
         $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
