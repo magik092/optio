@@ -140,6 +140,36 @@ $roles->contains('viewer'); // true
 Custom objects can be used as keys/elements as long as they implement
 `Optio\Value\Hashable`.
 
+Objects that can't (or shouldn't) implement `Hashable` can instead supply a
+`Hasher` — a plain closure the collection remembers and uses for every
+subsequent operation, instead of requiring the object to know how to hash
+itself:
+
+```php
+final class Person
+{
+    public function __construct(
+        public readonly string $name,
+        public readonly int $age,
+    ) {
+    }
+}
+
+$hasher = fn (Person $p): string => $p->name.':'.$p->age;
+
+$people = HashSet::ofHashed(
+    $hasher,
+    new Person('Karol', 33),
+    new Person('Karol', 33), // deduplicated — same hash
+);
+$people->length(); // 1
+```
+
+`filter()` and `HashMap::keys()` carry the hasher forward (the element/key
+type doesn't change); `map()` resets it to the default `Hashable`-based
+hashing, since the mapped type might be different — use `mapHashed()`
+instead to supply a new hasher for the mapped type in one step.
+
 `HashMap`, `HashSet`, `Vector` and `LinkedList` all support `sliding()`/
 `grouped()`, chunking the collection into a `Vector` of same-type windows:
 
