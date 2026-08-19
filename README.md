@@ -23,9 +23,6 @@ immutable and expressive.
 composer require magik092/optio
 ```
 
-(The package is not yet published on Packagist — until it is, require it as
-a VCS/path repository pointing at this git repository.)
-
 ## Monads
 
 ### Option
