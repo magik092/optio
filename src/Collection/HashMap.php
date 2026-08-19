@@ -33,10 +33,27 @@ final class HashMap implements \IteratorAggregate, \Countable
     }
 
     /**
-     * @param int<0, max> $size
+     * @param int<0, max>                  $size
+     * @param \Closure(mixed): string|null $hasher
      */
-    private function __construct(private readonly Node|Leaf|null $root, private readonly int $size)
+    private function __construct(
+        private readonly Node|Leaf|null $root,
+        private readonly int $size,
+        private readonly ?\Closure $hasher = null,
+    ) {
+    }
+
+    private function hashOf(mixed $key): int
     {
+        return $this->hasher !== null ? crc32(($this->hasher)($key)) : Comparator::hash($key);
+    }
+
+    /**
+     * @return self<K, V>
+     */
+    private function emptyLike(): self
+    {
+        return $this->hasher !== null ? new self(null, 0, $this->hasher) : self::empty();
     }
 
     /**
@@ -45,6 +62,18 @@ final class HashMap implements \IteratorAggregate, \Countable
     public static function empty(): self
     {
         return new self(null, 0);
+    }
+
+    /**
+     * @template MK
+     *
+     * @param \Closure(MK): string $hasher
+     *
+     * @return self<MK, never>
+     */
+    public static function emptyHashed(\Closure $hasher): self
+    {
+        return new self(null, 0, $hasher);
     }
 
     /**
@@ -104,9 +133,9 @@ final class HashMap implements \IteratorAggregate, \Countable
     public function put(mixed $key, mixed $value): self
     {
         $entry = new Tuple2($key, $value);
-        [$newRoot, $isNew] = Operations::put($this->root, Comparator::hash($key), self::keyEquals(), $entry, $key);
+        [$newRoot, $isNew] = Operations::put($this->root, $this->hashOf($key), self::keyEquals(), $entry, $key);
 
-        return new self($newRoot, $this->size + ($isNew ? 1 : 0));
+        return new self($newRoot, $this->size + ($isNew ? 1 : 0), $this->hasher);
     }
 
     /**
@@ -114,9 +143,9 @@ final class HashMap implements \IteratorAggregate, \Countable
      */
     public function remove(mixed $key): self
     {
-        [$newRoot, $removed] = Operations::remove($this->root, Comparator::hash($key), self::keyEquals(), $key);
+        [$newRoot, $removed] = Operations::remove($this->root, $this->hashOf($key), self::keyEquals(), $key);
 
-        return new self($newRoot, max(0, $this->size - ($removed ? 1 : 0)));
+        return new self($newRoot, max(0, $this->size - ($removed ? 1 : 0)), $this->hasher);
     }
 
     /**
@@ -124,7 +153,7 @@ final class HashMap implements \IteratorAggregate, \Countable
      */
     public function get(mixed $key): Option
     {
-        return Operations::get($this->root, Comparator::hash($key), self::keyEquals(), $key)
+        return Operations::get($this->root, $this->hashOf($key), self::keyEquals(), $key)
             ->map(fn (mixed $entry): mixed => $this->valueOf($this->requireTuple2($entry)));
     }
 
@@ -148,7 +177,9 @@ final class HashMap implements \IteratorAggregate, \Countable
      */
     public function keys(): HashSet
     {
-        return HashSet::ofAll(array_map(fn (Tuple2 $entry) => $this->keyOf($entry), $this->toArray()));
+        $keys = array_map(fn (Tuple2 $entry) => $this->keyOf($entry), $this->toArray());
+
+        return $this->hasher !== null ? HashSet::ofAllHashed($this->hasher, $keys) : HashSet::ofAll($keys);
     }
 
     /**
@@ -228,6 +259,26 @@ final class HashMap implements \IteratorAggregate, \Countable
     }
 
     /**
+     * @template MK
+     * @template MV
+     *
+     * @param \Closure(Tuple2<K, V>): Tuple2<MK, MV> $mapper
+     * @param \Closure(MK): string                   $hasher
+     *
+     * @return self<MK, MV>
+     */
+    public function mapHashed(\Closure $mapper, \Closure $hasher): self
+    {
+        $result = self::emptyHashed($hasher);
+        foreach ($this->toArray() as $entry) {
+            $mapped = $mapper($entry);
+            $result = $result->put(self::entryKey($mapped), self::entryValue($mapped));
+        }
+
+        return $result;
+    }
+
+    /**
      * @return Tuple2<K, V>
      */
     private function requireTuple2(mixed $mapped): Tuple2
@@ -246,7 +297,7 @@ final class HashMap implements \IteratorAggregate, \Countable
      */
     public function filter(\Closure $predicate): self
     {
-        $result = self::empty();
+        $result = $this->emptyLike();
         foreach ($this->toArray() as $entry) {
             if ($predicate($entry)) {
                 $result = $result->put($this->keyOf($entry), $this->valueOf($entry));

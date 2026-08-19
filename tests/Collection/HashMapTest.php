@@ -8,6 +8,7 @@ use Optio\Collection\HashMap;
 use Optio\Exception\HashableContractException;
 use Optio\Tests\Stub\CollidingHashableStub;
 use Optio\Tests\Stub\HashableStub;
+use Optio\Tests\Stub\NotHashableStub;
 use Optio\Tuple\Tuple2;
 use PHPUnit\Framework\TestCase;
 
@@ -256,5 +257,108 @@ final class HashMapTest extends TestCase
         $this->expectException(HashableContractException::class);
 
         HashMap::empty()->put([], 1);
+    }
+
+    public function testEmptyHashedThenPutUsesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $map = HashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->put(new NotHashableStub('Karol', 33), 'b');
+
+        self::assertSame(1, $map->length());
+        self::assertSame('b', $map->get(new NotHashableStub('Karol', 33))->getOrElse('missing'));
+    }
+
+    public function testGetAndContainsKeyUseTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $map = HashMap::emptyHashed($hasher)->put(new NotHashableStub('Karol', 33), 'value');
+
+        self::assertTrue($map->containsKey(new NotHashableStub('Karol', 33)));
+        self::assertFalse($map->containsKey(new NotHashableStub('Agata', 24)));
+    }
+
+    public function testRemoveUsesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $map = HashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'value')
+            ->remove(new NotHashableStub('Karol', 33));
+
+        self::assertSame(0, $map->length());
+    }
+
+    public function testFilterPreservesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $map = HashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->put(new NotHashableStub('Agata', 24), 'b')
+            ->filter(fn (Tuple2 $entry): bool => $entry[1] === 'a');
+
+        self::assertSame(1, $map->length());
+
+        // If the hasher survived filter(), putting a "duplicate" key (by the
+        // custom hash) must overwrite instead of growing the map.
+        $map = $map->put(new NotHashableStub('Karol', 33), 'c');
+        self::assertSame(1, $map->length());
+        self::assertSame('c', $map->get(new NotHashableStub('Karol', 33))->getOrElse('missing'));
+    }
+
+    public function testKeysPreservesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $keys = HashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->keys();
+
+        self::assertTrue($keys->contains(new NotHashableStub('Karol', 33)));
+
+        // If the hasher survived keys(), adding a duplicate must still dedupe.
+        $keys = $keys->add(new NotHashableStub('Karol', 33));
+        self::assertSame(1, $keys->length());
+    }
+
+    public function testMapResetsTheHasherAndThrowsOnUnhashableResult(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $this->expectException(HashableContractException::class);
+
+        HashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->map(function (Tuple2 $entry): Tuple2 {
+                /** @var NotHashableStub $key */
+                $key = $entry[0];
+
+                return new Tuple2(new NotHashableStub($key->name, $key->age + 1), $entry[1]);
+            });
+    }
+
+    public function testMapHashedAppliesTheNewHasherToMappedKeys(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $map = HashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->mapHashed(
+                function (Tuple2 $entry): Tuple2 {
+                    /** @var NotHashableStub $key */
+                    $key = $entry[0];
+
+                    return new Tuple2(new NotHashableStub($key->name, $key->age + 1), $entry[1]);
+                },
+                $hasher,
+            )
+            ->put(new NotHashableStub('Karol', 34), 'b');
+
+        self::assertSame(1, $map->length());
+        self::assertSame('b', $map->get(new NotHashableStub('Karol', 34))->getOrElse('missing'));
     }
 }
