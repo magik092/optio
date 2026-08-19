@@ -30,10 +30,19 @@ final class HashSet implements Traversable
     }
 
     /**
-     * @param int<0, max> $size
+     * @param int<0, max>              $size
+     * @param \Closure(T): string|null $hasher
      */
-    private function __construct(private readonly Node|Leaf|null $root, private readonly int $size)
+    private function __construct(
+        private readonly Node|Leaf|null $root,
+        private readonly int $size,
+        private readonly ?\Closure $hasher = null,
+    ) {
+    }
+
+    private function hashOf(mixed $element): int
     {
+        return $this->hasher !== null ? crc32(($this->hasher)($element)) : Comparator::hash($element);
     }
 
     /**
@@ -42,6 +51,18 @@ final class HashSet implements Traversable
     public static function empty(): self
     {
         return new self(null, 0);
+    }
+
+    /**
+     * @template U
+     *
+     * @param \Closure(U): string $hasher
+     *
+     * @return self<U>
+     */
+    public static function emptyHashed(\Closure $hasher): self
+    {
+        return new self(null, 0, $hasher);
     }
 
     /**
@@ -76,15 +97,46 @@ final class HashSet implements Traversable
     /**
      * @template U
      *
+     * @param \Closure(U): string $hasher
+     * @param U                   ...$elements
+     *
+     * @return self<U>
+     */
+    public static function ofHashed(\Closure $hasher, mixed ...$elements): self
+    {
+        return self::ofAllHashed($hasher, $elements);
+    }
+
+    /**
+     * @template U
+     *
+     * @param \Closure(U): string $hasher
+     * @param iterable<U>         $elements
+     *
+     * @return self<U>
+     */
+    public static function ofAllHashed(\Closure $hasher, iterable $elements): self
+    {
+        $set = self::emptyHashed($hasher);
+        foreach ($elements as $element) {
+            $set = $set->add($element);
+        }
+
+        return $set;
+    }
+
+    /**
+     * @template U
+     *
      * @param U $element
      *
      * @return self<T|U>
      */
     public function add(mixed $element): self
     {
-        [$newRoot, $isNew] = Operations::put($this->root, Comparator::hash($element), self::keyEquals(), $element, $element);
+        [$newRoot, $isNew] = Operations::put($this->root, $this->hashOf($element), self::keyEquals(), $element, $element);
 
-        return new self($newRoot, $this->size + ($isNew ? 1 : 0));
+        return new self($newRoot, $this->size + ($isNew ? 1 : 0), $this->hasher);
     }
 
     /**
@@ -92,14 +144,14 @@ final class HashSet implements Traversable
      */
     public function remove(mixed $element): self
     {
-        [$newRoot, $removed] = Operations::remove($this->root, Comparator::hash($element), self::keyEquals(), $element);
+        [$newRoot, $removed] = Operations::remove($this->root, $this->hashOf($element), self::keyEquals(), $element);
 
-        return new self($newRoot, max(0, $this->size - ($removed ? 1 : 0)));
+        return new self($newRoot, max(0, $this->size - ($removed ? 1 : 0)), $this->hasher);
     }
 
     public function contains(mixed $element): bool
     {
-        return Operations::get($this->root, Comparator::hash($element), self::keyEquals(), $element)->isDefined();
+        return Operations::get($this->root, $this->hashOf($element), self::keyEquals(), $element)->isDefined();
     }
 
     /**
@@ -157,13 +209,28 @@ final class HashSet implements Traversable
     }
 
     /**
+     * @template U
+     *
+     * @param \Closure(T): U      $mapper
+     * @param \Closure(U): string $hasher
+     *
+     * @return self<U>
+     */
+    public function mapHashed(\Closure $mapper, \Closure $hasher): self
+    {
+        return self::ofAllHashed($hasher, array_map($mapper, $this->toArray()));
+    }
+
+    /**
      * @param \Closure(T): bool $predicate
      *
      * @return self<T>
      */
     public function filter(\Closure $predicate): self
     {
-        return self::ofAll(array_values(array_filter($this->toArray(), $predicate)));
+        $filtered = array_values(array_filter($this->toArray(), $predicate));
+
+        return $this->hasher !== null ? self::ofAllHashed($this->hasher, $filtered) : self::ofAll($filtered);
     }
 
     /**

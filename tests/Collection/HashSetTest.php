@@ -8,6 +8,7 @@ use Optio\Collection\HashSet;
 use Optio\Exception\HashableContractException;
 use Optio\Tests\Stub\CollidingHashableStub;
 use Optio\Tests\Stub\HashableStub;
+use Optio\Tests\Stub\NotHashableStub;
 use PHPUnit\Framework\TestCase;
 
 final class HashSetTest extends TestCase
@@ -210,5 +211,104 @@ final class HashSetTest extends TestCase
         $this->expectException(HashableContractException::class);
 
         HashSet::empty()->add([]);
+    }
+
+    public function testOfHashedDeduplicatesPlainObjectsByCustomHash(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $set = HashSet::ofHashed(
+            $hasher,
+            new NotHashableStub('Karol', 33),
+            new NotHashableStub('Karol', 33),
+            new NotHashableStub('Agata', 24),
+        );
+
+        self::assertSame(2, $set->length());
+    }
+
+    public function testOfAllHashedDeduplicatesPlainObjectsByCustomHash(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $set = HashSet::ofAllHashed($hasher, [
+            new NotHashableStub('Karol', 33),
+            new NotHashableStub('Karol', 33),
+        ]);
+
+        self::assertSame(1, $set->length());
+    }
+
+    public function testEmptyHashedThenAddUsesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $set = HashSet::emptyHashed($hasher)
+            ->add(new NotHashableStub('Karol', 33))
+            ->add(new NotHashableStub('Karol', 33));
+
+        self::assertSame(1, $set->length());
+    }
+
+    public function testContainsUsesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $set = HashSet::ofHashed($hasher, new NotHashableStub('Karol', 33));
+
+        self::assertTrue($set->contains(new NotHashableStub('Karol', 33)));
+        self::assertFalse($set->contains(new NotHashableStub('Agata', 24)));
+    }
+
+    public function testRemoveUsesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $set = HashSet::ofHashed($hasher, new NotHashableStub('Karol', 33))
+            ->remove(new NotHashableStub('Karol', 33));
+
+        self::assertSame(0, $set->length());
+    }
+
+    public function testFilterPreservesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $set = HashSet::ofHashed(
+            $hasher,
+            new NotHashableStub('Karol', 33),
+            new NotHashableStub('Agata', 24),
+        )->filter(fn (NotHashableStub $p): bool => $p->age >= 30);
+
+        self::assertSame(1, $set->length());
+
+        // If the hasher survived filter(), adding a duplicate (by the custom
+        // hash) must still dedupe instead of growing the set.
+        $set = $set->add(new NotHashableStub('Karol', 33));
+        self::assertSame(1, $set->length());
+    }
+
+    public function testMapResetsTheHasherAndThrowsOnUnhashableResult(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $this->expectException(HashableContractException::class);
+
+        HashSet::ofHashed($hasher, new NotHashableStub('Karol', 33))
+            ->map(fn (NotHashableStub $p): NotHashableStub => new NotHashableStub($p->name, $p->age + 1));
+    }
+
+    public function testMapHashedAppliesTheNewHasherToMappedElements(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $set = HashSet::ofHashed($hasher, new NotHashableStub('Karol', 33))
+            ->mapHashed(
+                fn (NotHashableStub $p): NotHashableStub => new NotHashableStub($p->name, $p->age + 1),
+                $hasher,
+            )
+            ->add(new NotHashableStub('Karol', 34));
+
+        self::assertSame(1, $set->length());
     }
 }
