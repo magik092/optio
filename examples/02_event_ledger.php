@@ -120,28 +120,20 @@ function applyEvent(HashMap $accounts, Event $event): Either
         ->flatMap(static fn (Account $account): Either => $account->frozen
             ? Either::left(sprintf('account %s is frozen', $account->id))
             : Either::right($account))
-        ->flatMap(static function (Account $account) use ($event): Either {
-            switch ($event->type) {
-                case 'deposit':
-                    return $event->amount > 0
-                        ? Either::right($account->withBalance($account->balance + $event->amount))
-                        : Either::left('deposit amount must be positive');
-                case 'withdrawal':
-                    if ($event->amount > $account->balance) {
-                        return Either::left(sprintf(
-                            'insufficient funds on %s: balance %s, requested %s',
-                            $account->id,
-                            money($account->balance),
-                            money($event->amount),
-                        ));
-                    }
-
-                    return Either::right($account->withBalance($account->balance - $event->amount));
-                case 'freeze':
-                    return Either::right($account->frozen());
-                default:
-                    return Either::left(sprintf('unsupported event type "%s"', $event->type));
-            }
+        ->flatMap(static fn (Account $account): Either => match ($event->type) {
+            'deposit' => $event->amount > 0
+                ? Either::right($account->withBalance($account->balance + $event->amount))
+                : Either::left('deposit amount must be positive'),
+            'withdrawal' => $event->amount > $account->balance
+                ? Either::left(sprintf(
+                    'insufficient funds on %s: balance %s, requested %s',
+                    $account->id,
+                    money($account->balance),
+                    money($event->amount),
+                ))
+                : Either::right($account->withBalance($account->balance - $event->amount)),
+            'freeze' => Either::right($account->frozen()),
+            default => Either::left(sprintf('unsupported event type "%s"', $event->type)),
         });
 }
 
