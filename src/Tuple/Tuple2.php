@@ -1,0 +1,164 @@
+<?php
+
+/**
+ * This class is generated using generate-tuples script.
+ * Do not change it manually! Modify generator and use above script.
+ */
+
+declare(strict_types=1);
+
+namespace Optio\Tuple;
+
+use Optio\Tuple;
+
+/**
+ * @template T1
+ * @template T2
+ */
+class Tuple2 extends Tuple
+{
+    /**
+     * @param T1 $value1
+     * @param T2 $value2
+     */
+    public function __construct(
+        private $value1,
+        private $value2,
+    ) {
+    }
+
+    public function arity(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return array{T1, T2}
+     */
+    public function toArray(): array
+    {
+        return [
+            $this->value1,
+            $this->value2,
+        ];
+    }
+
+    /**
+     * @template T
+     *
+     * @param T $value
+     *
+     * @return Tuple3<T, T1, T2>
+     */
+    public function prepend($value): Tuple3
+    {
+        return new Tuple3($value, $this->value1, $this->value2);
+    }
+
+    /**
+     * @template T
+     *
+     * @param T $value
+     *
+     * @return Tuple3<T1, T2, T>
+     */
+    public function append($value): Tuple3
+    {
+        return new Tuple3($this->value1, $this->value2, $value);
+    }
+
+    /**
+     * @return Tuple2<T1, T2>
+     */
+    public function concatTuple0(Tuple0 $tuple)
+    {
+        return $this->concat($tuple);
+    }
+
+    /**
+     * @template U1
+     *
+     * @param Tuple1<U1> $tuple
+     *
+     * @return Tuple3<T1, T2, U1>
+     */
+    public function concatTuple1(Tuple1 $tuple)
+    {
+        return $this->concat($tuple);
+    }
+
+    /**
+     * @template U1
+     * @template U2
+     *
+     * @param Tuple2<U1, U2> $tuple
+     *
+     * @return Tuple4<T1, T2, U1, U2>
+     */
+    public function concatTuple2(Tuple2 $tuple)
+    {
+        return $this->concat($tuple);
+    }
+
+    /**
+     * @template U1
+     * @template U2
+     * @template U3
+     *
+     * @param Tuple3<U1, U2, U3> $tuple
+     *
+     * @return Tuple5<T1, T2, U1, U2, U3>
+     */
+    public function concatTuple3(Tuple3 $tuple)
+    {
+        return $this->concat($tuple);
+    }
+
+    /**
+     * @template U1
+     * @template U2
+     * @template U3
+     * @template U4
+     *
+     * @param Tuple4<U1, U2, U3, U4> $tuple
+     *
+     * @return Tuple6<T1, T2, U1, U2, U3, U4>
+     */
+    public function concatTuple4(Tuple4 $tuple)
+    {
+        return $this->concat($tuple);
+    }
+
+    /**
+     * @template U1
+     * @template U2
+     * @template U3
+     * @template U4
+     * @template U5
+     *
+     * @param Tuple5<U1, U2, U3, U4, U5> $tuple
+     *
+     * @return Tuple7<T1, T2, U1, U2, U3, U4, U5>
+     */
+    public function concatTuple5(Tuple5 $tuple)
+    {
+        return $this->concat($tuple);
+    }
+
+    /**
+     * @template U1
+     * @template U2
+     * @template U3
+     * @template U4
+     * @template U5
+     * @template U6
+     *
+     * @param Tuple6<U1, U2, U3, U4, U5, U6> $tuple
+     *
+     * @return Tuple8<T1, T2, U1, U2, U3, U4, U5, U6>
+     */
+    public function concatTuple6(Tuple6 $tuple)
+    {
+        return $this->concat($tuple);
+    }
+}

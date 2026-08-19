@@ -1,0 +1,46 @@
+<?php
+
+$finder = PhpCsFixer\Finder::create()
+    ->in(__DIR__.'/src')
+    ->in(__DIR__.'/tests')
+    ->in(__DIR__.'/generators')
+;
+
+$config = new PhpCsFixer\Config();
+
+return $config
+    ->setRiskyAllowed(true)
+    ->setRules([
+        '@PHP81Migration' => true,
+        '@Symfony' => true,
+        'array_syntax' => ['syntax' => 'short'],
+        'no_superfluous_elseif' => true,
+        'no_superfluous_phpdoc_tags' => ['allow_mixed' => true],
+        'no_unreachable_default_argument_value' => true,
+        'no_useless_else' => true,
+        'no_useless_return' => true,
+        'no_unused_imports' => true,
+        'declare_strict_types' => true,
+        'ordered_imports' => [
+            'imports_order' => null,
+            'sort_algorithm' => 'alpha',
+        ],
+        'phpdoc_order' => true,
+        'phpdoc_align' => true,
+        'phpdoc_no_access' => true,
+        'phpdoc_separation' => true,
+        'single_quote' => true,
+        'trim_array_spaces' => true,
+        'blank_lines_before_namespace' => false,
+        'single_blank_line_before_namespace' => true,
+        'yoda_style' => [
+            'equal' => null,
+            'identical' => null,
+            'less_and_greater' => null,
+            'always_move_variable' => false,
+        ],
+        'strict_param' => true,
+        'phpdoc_to_comment' => false,
+    ])
+    ->setFinder($finder)
+;

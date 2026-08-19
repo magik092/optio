@@ -1,0 +1,24 @@
+includes:
+    - vendor/phpstan/phpstan/conf/bleedingEdge.neon
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+
+parameters:
+    phpVersion: 80100
+    level: max
+    paths:
+        - src
+        - tests
+        - generators
+    ignoreErrors:
+        -
+            # Comparator intentionally falls back to PHP's `==` value comparison
+            # for objects that do not implement Comparable, so strict-rules'
+            # equal.notAllowed check is a deliberate false positive here.
+            identifier: equal.notAllowed
+            path: src/Value/Comparator.php
+        -
+            # concatTupleN's true return type depends on the runtime arity of both
+            # operands and cannot be expressed via self/static in PHPStan — same
+            # HKT limitation documented in docs/superpowers/specs/2026-08-17-optio-design.md
+            identifier: return.type
+            path: src/Tuple/*.php
