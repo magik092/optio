@@ -56,9 +56,8 @@ $message = Either::right(10)
 
 ### TryTo
 
-Wraps a computation that may throw. Named `TryTo` (not `Try`) because `Try`
-is a reserved PHP keyword. Exceptions thrown inside `map`/`flatMap` are
-caught automatically and turned into a `Failure`.
+Wraps a computation that may throw. Exceptions thrown inside `map`/`flatMap`
+are caught automatically and turned into a `Failure`.
 
 ```php
 use Optio\Control\TryTo;
@@ -169,6 +168,26 @@ type doesn't change); `map()` resets it to the default `Hashable`-based
 hashing, since the mapped type might be different — use `mapHashed()`
 instead to supply a new hasher for the mapped type in one step.
 
+`merge()` combines two instances of the same collection into a new one.
+`HashMap::merge()` takes an optional callback to resolve key conflicts —
+without one, the argument's value wins:
+
+```php
+$defaults = HashMap::empty()->put('timeout', 30)->put('retries', 3);
+$overrides = HashMap::empty()->put('timeout', 60);
+
+$defaults->merge($overrides)->get('timeout')->getOrElse(0); // 60 — $overrides wins
+
+$defaults->merge($overrides, fn (int $left, int $right): int => $left + $right)
+    ->get('timeout')->getOrElse(0); // 90 — callback invoked only for the shared key
+
+$roles = HashSet::of('admin', 'editor')->merge(HashSet::of('editor', 'viewer'));
+$roles->length(); // 3 — plain union, no duplicates
+```
+
+Insertion during `merge()` always uses the receiver's `Hasher` (if any) —
+the argument's `Hasher`, if different, is ignored.
+
 `HashMap`, `HashSet`, `Vector` and `LinkedList` all support `sliding()`/
 `grouped()`, chunking the collection into a `Vector` of same-type windows:
 
@@ -181,12 +200,10 @@ $map->grouped(2)->length(); // 2 windows — window membership follows hash orde
 ### Vector and LinkedList
 
 `Vector` is an indexed sequence backed by a 32-way branching trie with
-path-copying, giving O(log32 n) `get`/`update`/`append` — not the O(n)
-linear scan munusphp's `GenericList` relied on. `LinkedList` is a classic
+path-copying, giving O(log32 n) `get`/`update`/`append`. `LinkedList` is a classic
 immutable Cons/Nil chain with O(1) `prepend`/`head`/`tail`. Use `Vector`
 when you need indexed access or append; use `LinkedList` when you need
-O(1) prepend/head/tail instead. (The public class is named `LinkedList`,
-not `List` — `list` is a reserved word in PHP.)
+O(1) prepend/head/tail instead.
 
 ```php
 use Optio\Collection\Vector;
@@ -237,8 +254,7 @@ $stream->toArray(); // [2, 4, 6]
 
 Runtime pattern matching by type: dispatches to the first `case()` whose
 class matches the value's actual type, falling back to `default()` if
-none matches. (The public class is named `Matcher`, not `Match` — `match`
-is a reserved expression keyword in PHP 8.0+.)
+none matches.
 
 ```php
 use Optio\Control\Option\None;
@@ -320,6 +336,7 @@ MIT — see [`LICENSE`](LICENSE).
 - [munusphp/munus](https://github.com/munusphp/munus) — the PHP port Optio
   succeeds; several ideas (the `Tuple` generator, the overall shape of the
   Control layer) are carried over directly.
-- [freyr/monadic](https://github.com/freyr/monadic) — inspiration for the
-  `abstract class` + `final` variant pattern (`Some`/`None`, `Ok`/`Err`)
-  used throughout Optio's Control layer.
+- [freyr/monadic](https://github.com/freyr/monadic) — inspiration for
+  modeling each ADT as an abstract base with sealed `final` variant
+  subclasses (`Some`/`None`, `Left`/`Right`), the pattern used throughout
+  Optio's Control layer.
