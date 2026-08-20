@@ -209,4 +209,11 @@ final class LinkedHashMapTest extends TestCase
 
         self::assertSame([1, 2], $map->values());
     }
+
+    public function testKeysReturnsKeysAsALinkedHashSetInInsertionOrder(): void
+    {
+        $map = LinkedHashMap::empty()->put('c', 3)->put('a', 1)->put('b', 2);
+
+        self::assertSame(['c', 'a', 'b'], $map->keys()->toArray());
+    }
 }
