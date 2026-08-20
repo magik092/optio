@@ -28,8 +28,10 @@ use Optio\Tuple\Tuple2;
  *
  * @template K = never
  * @template V = never
+ *
+ * @implements \IteratorAggregate<int, Tuple2<K, V>>
  */
-final class LinkedHashMap
+final class LinkedHashMap implements \IteratorAggregate, \Countable
 {
     /**
      * @param Vector<K>                     $list   insertion order
@@ -160,5 +162,104 @@ final class LinkedHashMap
     public function isEmpty(): bool
     {
         return $this->map->isEmpty();
+    }
+
+    /**
+     * @return self<K, V>
+     */
+    public function remove(mixed $key): self
+    {
+        if (!$this->map->containsKey($key)) {
+            return $this;
+        }
+
+        $next = new self($this->list, $this->map->remove($key), $this->offset);
+
+        return $next->compactIfNeeded();
+    }
+
+    /**
+     * @return self<K, V>
+     */
+    private function compactIfNeeded(): self
+    {
+        $deadCount = $this->list->length() - $this->map->length();
+
+        if ($deadCount <= $this->map->length()) {
+            return $this;
+        }
+
+        $newList = Vector::empty();
+        $newMap = HashMap::empty();
+        $index = 0;
+
+        foreach ($this->liveEntries() as [$key, $slot]) {
+            $newList = $newList->append($key);
+            $newMap = $newMap->put($key, new Slot($slot->entry, $index));
+            ++$index;
+        }
+
+        return new self($newList, $newMap, 0);
+    }
+
+    /**
+     * Walks $list in order, keeping only positions whose key still maps
+     * (in $map) to a Slot recorded at that exact position — i.e. the live
+     * ones, in insertion order.
+     *
+     * @return list<array{0: K, 1: Slot<mixed, mixed>}>
+     */
+    private function liveEntries(): array
+    {
+        $result = [];
+
+        for ($i = 0; $i < $this->list->length(); ++$i) {
+            $key = $this->list->get($i);
+            $slotOption = $this->map->get($key);
+
+            if (!$slotOption->isDefined()) {
+                continue;
+            }
+
+            $slot = $slotOption->fold(
+                function (): never {
+                    throw new \LogicException('unreachable: isDefined() was just checked true');
+                },
+                fn (Slot $slot): Slot => $slot,
+            );
+
+            if ($slot->index === $this->offset + $i) {
+                $result[] = [$key, $slot];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return list<Tuple2<K, V>>
+     */
+    public function toArray(): array
+    {
+        return array_map(
+            fn (array $pair): Tuple2 => new Tuple2($pair[0], $this->slotValue($pair[1])),
+            $this->liveEntries(),
+        );
+    }
+
+    /**
+     * @return \Iterator<int, Tuple2<K, V>>
+     */
+    public function getIterator(): \Iterator
+    {
+        return new \ArrayIterator($this->toArray());
+    }
+
+    /**
+     * @return int<0, max>
+     */
+    public function count(): int
+    {
+        return $this->length();
     }
 }
