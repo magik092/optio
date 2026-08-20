@@ -323,6 +323,9 @@ go beyond the snippets above:
   objects that don't implement `Hashable`.
 - `06_vector_basics.php` — `Vector` as a duplicate-preserving, ordered
   sequence, contrasted with `HashSet`'s deduplication.
+- `07_merge_basics.php` — combining `HashMap`/`HashSet` with `merge()`:
+  overrides, conflict resolution via callback, unions, and how a custom
+  `Hasher` interacts with merging.
 
 Run any of them with `php examples/01_registration_pipeline.php`.
 
