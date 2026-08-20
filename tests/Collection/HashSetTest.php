@@ -332,4 +332,53 @@ final class HashSetTest extends TestCase
 
         self::assertSame(1, $set->length());
     }
+
+    public function testMergeUnionsElementsWithoutDuplicates(): void
+    {
+        $left = HashSet::of(1, 2, 3);
+        $right = HashSet::of(3, 4, 5);
+
+        $merged = $left->merge($right);
+
+        self::assertSame(5, $merged->length());
+        foreach ([1, 2, 3, 4, 5] as $expected) {
+            self::assertTrue($merged->contains($expected));
+        }
+    }
+
+    public function testMergeWithEitherSideEmpty(): void
+    {
+        $set = HashSet::of(1, 2);
+
+        self::assertSame(2, $set->merge(HashSet::empty())->length());
+        self::assertSame(2, HashSet::empty()->merge($set)->length());
+    }
+
+    public function testMergeUsesTargetHasherEvenWhenOtherHasNoneOrDifferent(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+        $otherHasher = fn (NotHashableStub $p): string => $p->age.':'.$p->name;
+
+        $left = HashSet::ofHashed($hasher, new NotHashableStub('Karol', 33));
+        $right = HashSet::ofHashed($otherHasher, new NotHashableStub('Karol', 33));
+
+        $merged = $left->merge($right);
+
+        // $right's hasher differs from $left's; merge() must still dedupe correctly
+        // because insertion always uses $left's (the target's) hasher.
+        self::assertSame(1, $merged->length());
+    }
+
+    public function testMergeWithoutHasherThrowsOnUnhashableElementFromOther(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $left = HashSet::empty();
+        $right = HashSet::ofHashed($hasher, new NotHashableStub('Karol', 33));
+
+        // $left has no hasher, so merging $right's non-Hashable element must fail using
+        // $left's (the target's) hashing rules, even though $right constructed fine.
+        $this->expectException(HashableContractException::class);
+        $left->merge($right);
+    }
 }

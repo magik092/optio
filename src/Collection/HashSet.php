@@ -149,6 +149,23 @@ final class HashSet implements Traversable
         return new self($newRoot, max(0, $this->size - ($removed ? 1 : 0)), $this->hasher);
     }
 
+    /**
+     * @template U
+     *
+     * @param self<U> $other
+     *
+     * @return self<T|U>
+     */
+    public function merge(self $other): self
+    {
+        $result = $this;
+        foreach ($other->toArray() as $element) {
+            $result = $result->add($element);
+        }
+
+        return $result;
+    }
+
     public function contains(mixed $element): bool
     {
         return Operations::get($this->root, $this->hashOf($element), self::keyEquals(), $element)->isDefined();
