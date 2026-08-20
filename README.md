@@ -3,13 +3,12 @@
 Immutable, monadic functional programming for PHP 8.1+, inspired by [Vavr](https://www.vavr.io/).
 
 Optio is a spiritual successor to `munusphp/munus` (itself inspired by Vavr,
-formerly Javaslang), rebuilt from scratch to fix problems the original
-never solved: linear-scan collections instead of real hash structures, and
-type guarantees that only look strong until you check what happens at
-runtime. Optio is for PHP developers who want functional idioms — `Option`
-instead of `null`, `Either`/`TryTo`/`Validation` instead of exceptions as
-control flow, immutable collections instead of defensive copying — backed
-by real static type safety through PHPStan `level: max`.
+formerly Javaslang), rebuilt from scratch around real hash-based collections
+(a HAMT, not a linear-scan array) and PHPStan `level: max` as the enforced
+type guarantee rather than a best-effort one. Optio is for PHP developers
+who want functional idioms — `Option` instead of `null`, `Either`/`TryTo`/
+`Validation` instead of exceptions as control flow, immutable collections
+instead of defensive copying.
 
 ## Requirements
 
