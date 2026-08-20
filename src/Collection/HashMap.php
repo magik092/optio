@@ -149,6 +149,34 @@ final class HashMap implements \IteratorAggregate, \Countable
     }
 
     /**
+     * @template MK
+     * @template MV
+     *
+     * @param self<MK, MV>                   $other
+     * @param (\Closure(V, MV): (V|MV))|null $onConflict called only when both maps share a key;
+     *                                                   without it, $other's value wins
+     *
+     * @return self<K|MK, V|MV>
+     */
+    public function merge(self $other, ?\Closure $onConflict = null): self
+    {
+        $result = $this;
+        foreach ($other->toArray() as $entry) {
+            $key = $other->keyOf($entry);
+            $value = $other->valueOf($entry);
+            if ($onConflict !== null) {
+                $value = $this->get($key)->fold(
+                    fn (): mixed => $value,
+                    fn (mixed $existingValue): mixed => $onConflict($existingValue, $value),
+                );
+            }
+            $result = $result->put($key, $value);
+        }
+
+        return $result;
+    }
+
+    /**
      * @return Option<V>
      */
     public function get(mixed $key): Option

@@ -381,4 +381,78 @@ final class HashMapTest extends TestCase
         self::assertSame(1, $map->length());
         self::assertSame('b', $map->get(new NotHashableStub('Karol', 34))->getOrElse('missing'));
     }
+
+    public function testMergeCombinesEntriesFromBothMapsWithNoOverlap(): void
+    {
+        $left = HashMap::empty()->put('a', 1)->put('b', 2);
+        $right = HashMap::empty()->put('c', 3);
+
+        $merged = $left->merge($right);
+
+        self::assertSame(3, $merged->length());
+        self::assertSame(1, $merged->get('a')->getOrElse(0));
+        self::assertSame(2, $merged->get('b')->getOrElse(0));
+        self::assertSame(3, $merged->get('c')->getOrElse(0));
+    }
+
+    public function testMergeWithoutCallbackLetsOtherWinOnConflict(): void
+    {
+        $left = HashMap::empty()->put('a', 1);
+        $right = HashMap::empty()->put('a', 2);
+
+        $merged = $left->merge($right);
+
+        self::assertSame(1, $merged->length());
+        self::assertSame(2, $merged->get('a')->getOrElse(0));
+    }
+
+    public function testMergeWithCallbackResolvesConflictsOnly(): void
+    {
+        $left = HashMap::empty()->put('a', 1)->put('b', 10);
+        $right = HashMap::empty()->put('a', 2)->put('c', 100);
+
+        $merged = $left->merge($right, fn (int $leftValue, int $rightValue): int => $leftValue + $rightValue);
+
+        self::assertSame(3, $merged->length());
+        self::assertSame(3, $merged->get('a')->getOrElse(0)); // 1 + 2, callback invoked
+        self::assertSame(10, $merged->get('b')->getOrElse(0)); // left-only, callback not invoked
+        self::assertSame(100, $merged->get('c')->getOrElse(0)); // right-only, callback not invoked
+    }
+
+    public function testMergeWithEitherSideEmpty(): void
+    {
+        $map = HashMap::empty()->put('a', 1);
+
+        self::assertSame(1, $map->merge(HashMap::empty())->length());
+        self::assertSame(1, HashMap::empty()->merge($map)->length());
+    }
+
+    public function testMergeUsesTargetHasherEvenWhenOtherHasDifferentHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+        $otherHasher = fn (NotHashableStub $p): string => $p->age.':'.$p->name;
+
+        $left = HashMap::emptyHashed($hasher)->put(new NotHashableStub('Karol', 33), 'left');
+        $right = HashMap::emptyHashed($otherHasher)->put(new NotHashableStub('Karol', 33), 'right');
+
+        $merged = $left->merge($right);
+
+        // $right's hasher differs from $left's; merge() must still dedupe correctly
+        // because insertion always uses $left's (the target's) hasher.
+        self::assertSame(1, $merged->length());
+        self::assertSame('right', $merged->get(new NotHashableStub('Karol', 33))->getOrElse('missing'));
+    }
+
+    public function testMergeWithoutHasherThrowsOnUnhashableKeyFromOther(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $left = HashMap::empty()->put('a', 1);
+        $right = HashMap::emptyHashed($hasher)->put(new NotHashableStub('Karol', 33), 2);
+
+        // $left has no hasher, so merging $right's non-Hashable key must fail using
+        // $left's (the target's) hashing rules, even though $right constructed fine.
+        $this->expectException(HashableContractException::class);
+        $left->merge($right);
+    }
 }
