@@ -293,8 +293,8 @@ things at runtime.
 
 ## Examples
 
-The [`examples/`](examples/) directory has three complete, runnable scripts
-that go beyond the snippets above:
+The [`examples/`](examples/) directory has complete, runnable scripts that
+go beyond the snippets above:
 
 - `01_registration_pipeline.php` — validating and registering a user with
   `Validation`, `Either` and `HashMap`/`HashSet`.
@@ -302,6 +302,12 @@ that go beyond the snippets above:
   collections.
 - `03_recommendations.php` — a small recommendation engine composing
   `Option`, `HashMap` and `HashSet`.
+- `04_benchmark_vs_munus.php` — measures `HashMap`'s O(log32 n) put/get
+  against munusphp/munus's O(n) linear-scan `Map`.
+- `05_hasher_without_hashable.php` — using `Hasher` to hash/dedupe plain
+  objects that don't implement `Hashable`.
+- `06_vector_basics.php` — `Vector` as a duplicate-preserving, ordered
+  sequence, contrasted with `HashSet`'s deduplication.
 
 Run any of them with `php examples/01_registration_pipeline.php`.
 
