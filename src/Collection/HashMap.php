@@ -152,9 +152,15 @@ final class HashMap implements \IteratorAggregate, \Countable
      * @template MK
      * @template MV
      *
-     * @param self<MK, MV>                   $other
-     * @param (\Closure(V, MV): (V|MV))|null $onConflict called only when both maps share a key;
-     *                                                   without it, $other's value wins
+     * @param self<MK, MV>                      $other
+     * @param (\Closure(V|MV, MV): (V|MV))|null $onConflict called whenever $key is already present
+     *                                                      in the accumulator built so far — either
+     *                                                      because $this already had it (first
+     *                                                      argument is then V), or because an earlier
+     *                                                      $other entry already collided into it under
+     *                                                      the target's hasher (first argument is then
+     *                                                      the previously resolved V|MV); without
+     *                                                      $onConflict, $other's value always wins
      *
      * @return self<K|MK, V|MV>
      */
@@ -165,10 +171,14 @@ final class HashMap implements \IteratorAggregate, \Countable
             $key = $other->keyOf($entry);
             $value = $other->valueOf($entry);
             if ($onConflict !== null) {
-                $value = $this->get($key)->fold(
-                    fn (): mixed => $value,
-                    fn (mixed $existingValue): mixed => $onConflict($existingValue, $value),
-                );
+                // $result is the progressively built accumulator (not $this): it must be
+                // consulted here so that two $other entries which only collide under the
+                // *target*'s hasher (because $other used a different/no hasher) are also
+                // resolved via $onConflict, not silently overwritten by the second put().
+                $existing = $result->get($key);
+                if ($existing->isDefined()) {
+                    $value = $onConflict($existing->getOrElse($value), $value);
+                }
             }
             $result = $result->put($key, $value);
         }

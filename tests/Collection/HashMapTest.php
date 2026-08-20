@@ -455,4 +455,33 @@ final class HashMapTest extends TestCase
         $this->expectException(HashableContractException::class);
         $left->merge($right);
     }
+
+    public function testMergeAppliesOnConflictWhenTwoOtherEntriesCollideOnlyUnderTargetHasher(): void
+    {
+        $targetHasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+        // Deliberately unrelated to the key's equatable fields, so $right can hold two
+        // distinct ("==" equal but different-identity) entries that $left's hasher would
+        // treat as the very same key.
+        $identityHasher = fn (NotHashableStub $p): string => (string) spl_object_id($p);
+
+        $keyA = new NotHashableStub('Karol', 33);
+        $keyB = new NotHashableStub('Karol', 33); // distinct instance, structurally "==" equal to $keyA
+
+        $left = HashMap::emptyHashed($targetHasher);
+        $right = HashMap::emptyHashed($identityHasher)
+            ->put($keyA, 'first')
+            ->put($keyB, 'second');
+
+        // Sanity check: under $right's own (identity-based) hasher, both entries are kept.
+        self::assertSame(2, $right->length());
+
+        $merged = $left->merge($right, fn (string $a, string $b): string => $a.'+'.$b);
+
+        // Under $left's (the target's) hasher, $keyA and $keyB collide into a single slot;
+        // merge() must detect this second $other entry as a conflict against what it already
+        // inserted for the first one — not silently overwrite it — even though $left itself
+        // never held this key and $other's own hasher never saw a collision at all.
+        self::assertSame(1, $merged->length());
+        self::assertContains($merged->get($keyA)->getOrElse('missing'), ['first+second', 'second+first']);
+    }
 }
