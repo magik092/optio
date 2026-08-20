@@ -37,8 +37,11 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
     /**
      * @param Vector<K>                     $list   insertion order
      * @param HashMap<K, Slot<mixed,mixed>> $map
-     * @param int                           $offset how many positions have been trimmed from the
-     *                                              front of $list by a prior reindex
+     * @param int                           $offset reserved for a future cheap front-trim
+     *                                              optimization (as in Vavr's tombstone design);
+     *                                              this no-sentinel implementation always fully
+     *                                              rebuilds on compaction, so $offset is currently
+     *                                              always 0
      */
     private function __construct(
         private readonly Vector $list,
@@ -322,7 +325,7 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
         $result = self::empty();
         foreach ($this->toArray() as $entry) {
             if ($predicate($entry)) {
-                $result = $result->put($entry[0], $entry[1]);
+                $result = $result->put($this->keyOf($entry), $this->valueOf($entry));
             }
         }
 

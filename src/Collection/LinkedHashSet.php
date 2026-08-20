@@ -20,7 +20,7 @@ use Optio\Tuple\Tuple2;
 final class LinkedHashSet implements Traversable
 {
     /**
-     * @param LinkedHashMap $map LinkedHashMap<T, bool>
+     * @param LinkedHashMap<T, bool> $map
      */
     private function __construct(private readonly LinkedHashMap $map)
     {
