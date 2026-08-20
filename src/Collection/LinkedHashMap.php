@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Optio\Collection;
 
+use Optio\Collection\Internal\Sliding;
 use Optio\Collection\LinkedHashMap\Slot;
 use Optio\Control\Option;
 use Optio\Tuple\Tuple2;
@@ -261,5 +262,135 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
     public function count(): int
     {
         return $this->length();
+    }
+
+    /**
+     * @param \Closure(Tuple2<K, V>): mixed $mapper
+     *
+     * @return self<K, V>
+     */
+    public function map(\Closure $mapper): self
+    {
+        $result = self::empty();
+        foreach ($this->toArray() as $entry) {
+            $mapped = $this->requireTuple2($mapper($entry));
+            $result = $result->put($this->keyOf($mapped), $this->valueOf($mapped));
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param Tuple2<K, V> $entry
+     *
+     * @return K
+     */
+    private function keyOf(Tuple2 $entry): mixed
+    {
+        return $entry[0];
+    }
+
+    /**
+     * @param Tuple2<K, V> $entry
+     *
+     * @return V
+     */
+    private function valueOf(Tuple2 $entry): mixed
+    {
+        return $entry[1];
+    }
+
+    /**
+     * @return Tuple2<K, V>
+     */
+    private function requireTuple2(mixed $mapped): Tuple2
+    {
+        if (!$mapped instanceof Tuple2) {
+            throw new \LogicException('LinkedHashMap invariant violated: expected an entry of Tuple2, got '.get_debug_type($mapped).'.');
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * @param \Closure(Tuple2<K, V>): bool $predicate
+     *
+     * @return self<K, V>
+     */
+    public function filter(\Closure $predicate): self
+    {
+        $result = self::empty();
+        foreach ($this->toArray() as $entry) {
+            if ($predicate($entry)) {
+                $result = $result->put($entry[0], $entry[1]);
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @template U
+     *
+     * @param U                            $initial
+     * @param \Closure(U, Tuple2<K, V>): U $combine
+     *
+     * @return U
+     */
+    public function fold(mixed $initial, \Closure $combine): mixed
+    {
+        $accumulator = $initial;
+        foreach ($this->toArray() as $entry) {
+            $accumulator = $combine($accumulator, $entry);
+        }
+
+        return $accumulator;
+    }
+
+    /**
+     * @param \Closure(Tuple2<K, V>): void $action
+     */
+    public function forEach(\Closure $action): void
+    {
+        foreach ($this->toArray() as $entry) {
+            $action($entry);
+        }
+    }
+
+    /**
+     * Window order is insertion order (unlike HashMap, where it is
+     * unspecified) — this is the defining property of this class.
+     *
+     * @return Vector<self<K, V>>
+     */
+    public function sliding(int $size, int $step): Vector
+    {
+        $windows = Sliding::windows($this->toArray(), $size, $step);
+
+        return Vector::ofAll(array_map(fn (array $chunk): self => self::ofAll($chunk), $windows));
+    }
+
+    /**
+     * @return Vector<self<K, V>>
+     */
+    public function grouped(int $size): Vector
+    {
+        return $this->sliding($size, $size);
+    }
+
+    /**
+     * @return LinkedHashSet<K>
+     */
+    public function keys(): LinkedHashSet
+    {
+        return LinkedHashSet::ofAll(array_map(fn (Tuple2 $entry) => $this->keyOf($entry), $this->toArray()));
+    }
+
+    /**
+     * @return list<V>
+     */
+    public function values(): array
+    {
+        return array_map(fn (Tuple2 $entry) => $this->valueOf($entry), $this->toArray());
     }
 }
