@@ -278,7 +278,12 @@ final class LinkedHashSet implements Traversable
     {
         $windows = Internal\Sliding::windows($this->toArray(), $size, $step);
 
-        return Vector::ofAll(array_map(fn (array $chunk): self => self::ofAll($chunk), $windows));
+        $result = [];
+        foreach ($windows as $chunk) {
+            $result[] = $this->hasher !== null ? self::ofAllHashed($this->hasher, $chunk) : self::ofAll($chunk);
+        }
+
+        return Vector::ofAll($result);
     }
 
     /**

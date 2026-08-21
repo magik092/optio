@@ -450,7 +450,16 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
     {
         $windows = Sliding::windows($this->toArray(), $size, $step);
 
-        return Vector::ofAll(array_map(fn (array $chunk): self => self::ofAll($chunk), $windows));
+        $results = [];
+        foreach ($windows as $chunk) {
+            $window = $this->hasher !== null ? self::emptyHashed($this->hasher) : self::empty();
+            foreach ($chunk as $entry) {
+                $window = $window->put($this->keyOf($entry), $this->valueOf($entry));
+            }
+            $results[] = $window;
+        }
+
+        return Vector::ofAll($results);
     }
 
     /**

@@ -122,6 +122,22 @@ final class LinkedHashSetTest extends TestCase
         self::assertSame(1, $filtered->add(new NotHashableStub('Karol', 33))->length());
     }
 
+    public function testSlidingPreservesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $windows = LinkedHashSet::ofHashed(
+            $hasher,
+            new NotHashableStub('Karol', 33),
+            new NotHashableStub('Agata', 24),
+            new NotHashableStub('Jedrzej', 13),
+        )->sliding(2, 1);
+
+        $firstWindow = $windows->get(0);
+        $withDuplicate = $firstWindow->add(new NotHashableStub('Karol', 33));
+        self::assertSame($firstWindow->length(), $withDuplicate->length());
+    }
+
     public function testMapResetsTheHasherAndThrowsOnUnhashableResult(): void
     {
         $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;

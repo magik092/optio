@@ -251,6 +251,23 @@ final class LinkedHashMapTest extends TestCase
         self::assertSame(1, $filtered->put(new NotHashableStub('Karol', 33), 'z')->length());
     }
 
+    public function testSlidingPreservesTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $windows = LinkedHashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->put(new NotHashableStub('Agata', 24), 'b')
+            ->put(new NotHashableStub('Jedrzej', 13), 'c')
+            ->sliding(2, 1);
+
+        $firstWindow = $windows->get(0);
+        // If the hasher survived sliding(), putting a "duplicate" of a key
+        // already in the window must overwrite instead of growing the map.
+        $withDuplicate = $firstWindow->put(new NotHashableStub('Karol', 33), 'z');
+        self::assertSame($firstWindow->length(), $withDuplicate->length());
+    }
+
     public function testHasherSurvivesKeys(): void
     {
         $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
