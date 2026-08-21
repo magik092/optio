@@ -307,4 +307,52 @@ final class LinkedHashMapTest extends TestCase
         self::assertSame(1, $map->length());
         self::assertSame('b', $map->get(new NotHashableStub('Karol', 34))->getOrElse('missing'));
     }
+
+    public function testMergeCombinesEntriesFromBothMapsPreservingThisOrderThenAppendingOtherOnlyKeys(): void
+    {
+        $left = LinkedHashMap::empty()->put('b', 2)->put('a', 1);
+        $right = LinkedHashMap::empty()->put('c', 3);
+
+        $merged = $left->merge($right);
+
+        self::assertSame(3, $merged->length());
+        self::assertSame(['b', 'a', 'c'], array_map(fn ($e) => $e[0], $merged->toArray()));
+    }
+
+    public function testMergeWithoutCallbackLetsOtherWinOnConflictKeepingThisPosition(): void
+    {
+        $left = LinkedHashMap::empty()->put('a', 1)->put('b', 2);
+        $right = LinkedHashMap::empty()->put('a', 99);
+
+        $merged = $left->merge($right);
+
+        self::assertSame(['a', 'b'], array_map(fn ($e) => $e[0], $merged->toArray()));
+        self::assertSame(99, $merged->get('a')->getOrElse(0));
+    }
+
+    public function testMergeWithCallbackResolvesConflictsOnly(): void
+    {
+        $left = LinkedHashMap::empty()->put('a', 1)->put('b', 10);
+        $right = LinkedHashMap::empty()->put('a', 2)->put('c', 100);
+
+        $merged = $left->merge($right, fn (int $l, int $r): int => $l + $r);
+
+        self::assertSame(3, $merged->get('a')->getOrElse(0));
+        self::assertSame(10, $merged->get('b')->getOrElse(0));
+        self::assertSame(100, $merged->get('c')->getOrElse(0));
+    }
+
+    public function testMergeUsesTargetHasherEvenWhenOtherHasNoneOrDifferent(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $left = LinkedHashMap::emptyHashed($hasher)->put(new NotHashableStub('Karol', 33), 'left');
+        $right = LinkedHashMap::emptyHashed(fn (NotHashableStub $p): string => 'other:'.$p->name)
+            ->put(new NotHashableStub('Karol', 33), 'right');
+
+        $merged = $left->merge($right);
+
+        self::assertSame(1, $merged->length());
+        self::assertSame('right', $merged->get(new NotHashableStub('Karol', 33))->getOrElse('missing'));
+    }
 }

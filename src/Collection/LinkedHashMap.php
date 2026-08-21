@@ -214,6 +214,35 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
     }
 
     /**
+     * @template MK
+     * @template MV
+     *
+     * @param self<MK, MV>                      $other
+     * @param (\Closure(V|MV, MV): (V|MV))|null $onConflict called whenever $key is already present
+     *                                                      in the accumulator built so far; without
+     *                                                      it, $other's value always wins
+     *
+     * @return self<K|MK, V|MV>
+     */
+    public function merge(self $other, ?\Closure $onConflict = null): self
+    {
+        $result = $this;
+        foreach ($other->toArray() as $entry) {
+            $key = $other->keyOf($entry);
+            $value = $other->valueOf($entry);
+            if ($onConflict !== null) {
+                $existing = $result->get($key);
+                if ($existing->isDefined()) {
+                    $value = $onConflict($existing->getOrElse($value), $value);
+                }
+            }
+            $result = $result->put($key, $value);
+        }
+
+        return $result;
+    }
+
+    /**
      * @return self<K, V>
      */
     private function compactIfNeeded(): self
