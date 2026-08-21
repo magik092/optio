@@ -42,11 +42,13 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
      *                                              this no-sentinel implementation always fully
      *                                              rebuilds on compaction, so $offset is currently
      *                                              always 0
+     * @param \Closure(K): string|null      $hasher
      */
     private function __construct(
         private readonly Vector $list,
         private readonly HashMap $map,
         private readonly int $offset,
+        private readonly ?\Closure $hasher = null,
     ) {
     }
 
@@ -56,6 +58,18 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
     public static function empty(): self
     {
         return new self(Vector::empty(), HashMap::empty(), 0);
+    }
+
+    /**
+     * @template MK
+     *
+     * @param \Closure(MK): string $hasher
+     *
+     * @return self<MK, never>
+     */
+    public static function emptyHashed(\Closure $hasher): self
+    {
+        return new self(Vector::empty(), HashMap::emptyHashed($hasher), 0, $hasher);
     }
 
     /**
@@ -113,23 +127,40 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
      */
     public function put(mixed $key, mixed $value): self
     {
+        $hasher = $this->widenedHasher();
+
         return $this->map->get($key)->fold(
-            function () use ($key, $value): self {
+            function () use ($key, $value, $hasher): self {
                 $index = $this->offset + $this->list->length();
                 $newList = $this->list->append($key);
                 $newMap = $this->map->put($key, new Slot(new Tuple2($key, $value), $index));
 
-                return new self($newList, $newMap, $this->offset);
+                return new self($newList, $newMap, $this->offset, $hasher);
             },
             /**
              * @param Slot<K, V> $existingSlot
              */
-            function (Slot $existingSlot) use ($key, $value): self {
+            function (Slot $existingSlot) use ($key, $value, $hasher): self {
                 $newMap = $this->map->put($key, new Slot(new Tuple2($key, $value), $existingSlot->index));
 
-                return new self($this->list, $newMap, $this->offset);
+                return new self($this->list, $newMap, $this->offset, $hasher);
             },
         );
+    }
+
+    /**
+     * Widens the stored hasher's parameter type to `mixed` so it can be
+     * forwarded into a `self<K|U, V|W>` (a wider key type than the
+     * hasher's own `K`) without violating closure-parameter contravariance.
+     * Purely a static-typing device — the underlying closure is unchanged.
+     *
+     * @return \Closure(mixed): string|null
+     */
+    private function widenedHasher(): ?\Closure
+    {
+        $hasher = $this->hasher;
+
+        return $hasher !== null ? static fn (mixed $key): string => $hasher($key) : null;
     }
 
     /**
@@ -177,7 +208,7 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
             return $this;
         }
 
-        $next = new self($this->list, $this->map->remove($key), $this->offset);
+        $next = new self($this->list, $this->map->remove($key), $this->offset, $this->hasher);
 
         return $next->compactIfNeeded();
     }
@@ -194,7 +225,7 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
         }
 
         $newList = Vector::empty();
-        $newMap = HashMap::empty();
+        $newMap = $this->hasher !== null ? HashMap::emptyHashed($this->hasher) : HashMap::empty();
         $index = 0;
 
         foreach ($this->liveEntries() as [$key, $slot]) {
@@ -203,7 +234,7 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
             ++$index;
         }
 
-        return new self($newList, $newMap, 0);
+        return new self($newList, $newMap, 0, $this->hasher);
     }
 
     /**
@@ -284,6 +315,26 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
     }
 
     /**
+     * @template MK
+     * @template MV
+     *
+     * @param \Closure(Tuple2<K, V>): Tuple2<MK, MV> $mapper
+     * @param \Closure(MK): string                   $hasher
+     *
+     * @return self<MK, MV>
+     */
+    public function mapHashed(\Closure $mapper, \Closure $hasher): self
+    {
+        $result = self::emptyHashed($hasher);
+        foreach ($this->toArray() as $entry) {
+            $mapped = $mapper($entry);
+            $result = $result->put(self::entryKey($mapped), self::entryValue($mapped));
+        }
+
+        return $result;
+    }
+
+    /**
      * @param Tuple2<K, V> $entry
      *
      * @return K
@@ -322,7 +373,7 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
      */
     public function filter(\Closure $predicate): self
     {
-        $result = self::empty();
+        $result = $this->hasher !== null ? self::emptyHashed($this->hasher) : self::empty();
         foreach ($this->toArray() as $entry) {
             if ($predicate($entry)) {
                 $result = $result->put($this->keyOf($entry), $this->valueOf($entry));
@@ -386,7 +437,9 @@ final class LinkedHashMap implements \IteratorAggregate, \Countable
      */
     public function keys(): LinkedHashSet
     {
-        return LinkedHashSet::ofAll(array_map(fn (Tuple2 $entry) => $this->keyOf($entry), $this->toArray()));
+        $keys = array_map(fn (Tuple2 $entry) => $this->keyOf($entry), $this->toArray());
+
+        return $this->hasher !== null ? LinkedHashSet::ofAllHashed($this->hasher, $keys) : LinkedHashSet::ofAll($keys);
     }
 
     /**

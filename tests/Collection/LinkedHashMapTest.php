@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Optio\Tests\Collection;
 
 use Optio\Collection\LinkedHashMap;
+use Optio\Exception\HashableContractException;
+use Optio\Tests\Stub\NotHashableStub;
 use Optio\Tuple\Tuple2;
 use PHPUnit\Framework\TestCase;
 
@@ -215,5 +217,100 @@ final class LinkedHashMapTest extends TestCase
         $map = LinkedHashMap::empty()->put('c', 3)->put('a', 1)->put('b', 2);
 
         self::assertSame(['c', 'a', 'b'], $map->keys()->toArray());
+    }
+
+    public function testEmptyHashedThenPutDedupesPlainObjectsByCustomHash(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $map = LinkedHashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->put(new NotHashableStub('Karol', 33), 'b');
+
+        self::assertSame(1, $map->length());
+        self::assertSame('b', $map->get(new NotHashableStub('Karol', 33))->getOrElse('missing'));
+    }
+
+    public function testHasherSurvivesRemoveAndFilterAndKeys(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $map = LinkedHashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->put(new NotHashableStub('Agata', 24), 'b')
+            ->remove(new NotHashableStub('Agata', 24));
+
+        // If the hasher survived remove(), a duplicate put() must still dedupe.
+        $map = $map->put(new NotHashableStub('Karol', 33), 'c');
+        self::assertSame(1, $map->length());
+
+        $filtered = LinkedHashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->filter(fn ($entry) => true);
+        // If the hasher survived filter(), a duplicate put() afterward must still dedupe.
+        self::assertSame(1, $filtered->put(new NotHashableStub('Karol', 33), 'z')->length());
+    }
+
+    public function testHasherSurvivesKeys(): void
+    {
+        // Depends on LinkedHashSet::ofAllHashed(), which does not exist yet
+        // (it lands in Task 2 of the linked-hash-collections-extras plan).
+        // keys()'s hasher-forwarding code path exists but cannot be exercised
+        // at runtime until then. Intended assertion, to be enabled in Task 2:
+        //
+        // $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+        // $keys = LinkedHashMap::emptyHashed($hasher)
+        //     ->put(new NotHashableStub('Karol', 33), 'a')
+        //     ->keys();
+        // // If the hasher survived keys(), a duplicate add() must still dedupe.
+        // self::assertSame(1, $keys->add(new NotHashableStub('Karol', 33))->length());
+        self::markTestIncomplete('Blocked on LinkedHashSet::ofAllHashed() (Task 2).');
+    }
+
+    public function testMapResetsTheHasher(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $this->expectException(HashableContractException::class);
+
+        // map() resets to self::empty() (no hasher). The mapped key is a
+        // plain object without Hashable, so the very next put() inside
+        // map() already hits default hashing and throws — proving the
+        // hasher did not survive.
+        LinkedHashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->map(
+                /**
+                 * @param Tuple2<NotHashableStub, string> $entry
+                 */
+                function (Tuple2 $entry): Tuple2 {
+                    $person = self::keyOf($entry);
+
+                    return new Tuple2(new NotHashableStub($person->name, $person->age + 1), self::valueOf($entry));
+                },
+            );
+    }
+
+    public function testMapHashedAppliesTheNewHasherToMappedKeys(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $map = LinkedHashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->mapHashed(
+                /**
+                 * @param Tuple2<NotHashableStub, string> $entry
+                 */
+                function (Tuple2 $entry): Tuple2 {
+                    $person = self::keyOf($entry);
+
+                    return new Tuple2(new NotHashableStub($person->name, $person->age + 1), self::valueOf($entry));
+                },
+                $hasher,
+            )
+            ->put(new NotHashableStub('Karol', 34), 'b');
+
+        self::assertSame(1, $map->length());
+        self::assertSame('b', $map->get(new NotHashableStub('Karol', 34))->getOrElse('missing'));
     }
 }
