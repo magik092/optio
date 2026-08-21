@@ -144,6 +144,23 @@ final class LinkedHashSet implements Traversable
         return new self($this->map->remove($element), $this->hasher);
     }
 
+    /**
+     * @template U
+     *
+     * @param self<U> $other
+     *
+     * @return self<T|U>
+     */
+    public function merge(self $other): self
+    {
+        $result = $this;
+        foreach ($other->toArray() as $element) {
+            $result = $result->add($element);
+        }
+
+        return $result;
+    }
+
     public function contains(mixed $element): bool
     {
         return $this->map->containsKey($element);

@@ -145,4 +145,27 @@ final class LinkedHashSetTest extends TestCase
 
         self::assertSame(1, $set->length());
     }
+
+    public function testMergeUnionsElementsPreservingThisOrderThenAppendingOtherOnlyElements(): void
+    {
+        $left = LinkedHashSet::of('b', 'a');
+        $right = LinkedHashSet::of('a', 'c');
+
+        $merged = $left->merge($right);
+
+        self::assertSame(['b', 'a', 'c'], $merged->toArray());
+    }
+
+    public function testMergeUsesTargetHasherEvenWhenOtherHasNoneOrDifferent(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+        $otherHasher = fn (NotHashableStub $p): string => $p->age.':'.$p->name;
+
+        $left = LinkedHashSet::ofHashed($hasher, new NotHashableStub('Karol', 33));
+        $right = LinkedHashSet::ofHashed($otherHasher, new NotHashableStub('Karol', 33));
+
+        $merged = $left->merge($right);
+
+        self::assertSame(1, $merged->length());
+    }
 }
