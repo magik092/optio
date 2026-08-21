@@ -253,18 +253,12 @@ final class LinkedHashMapTest extends TestCase
 
     public function testHasherSurvivesKeys(): void
     {
-        // Depends on LinkedHashSet::ofAllHashed(), which does not exist yet
-        // (it lands in Task 2 of the linked-hash-collections-extras plan).
-        // keys()'s hasher-forwarding code path exists but cannot be exercised
-        // at runtime until then. Intended assertion, to be enabled in Task 2:
-        //
-        // $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
-        // $keys = LinkedHashMap::emptyHashed($hasher)
-        //     ->put(new NotHashableStub('Karol', 33), 'a')
-        //     ->keys();
-        // // If the hasher survived keys(), a duplicate add() must still dedupe.
-        // self::assertSame(1, $keys->add(new NotHashableStub('Karol', 33))->length());
-        self::markTestIncomplete('Blocked on LinkedHashSet::ofAllHashed() (Task 2).');
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+        $keys = LinkedHashMap::emptyHashed($hasher)
+            ->put(new NotHashableStub('Karol', 33), 'a')
+            ->keys();
+        // If the hasher survived keys(), a duplicate add() must still dedupe.
+        self::assertSame(1, $keys->add(new NotHashableStub('Karol', 33))->length());
     }
 
     public function testMapResetsTheHasher(): void

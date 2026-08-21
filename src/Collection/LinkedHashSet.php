@@ -20,10 +20,13 @@ use Optio\Tuple\Tuple2;
 final class LinkedHashSet implements Traversable
 {
     /**
-     * @param LinkedHashMap<T, bool> $map
+     * @param LinkedHashMap<T, bool>   $map
+     * @param \Closure(T): string|null $hasher
      */
-    private function __construct(private readonly LinkedHashMap $map)
-    {
+    private function __construct(
+        private readonly LinkedHashMap $map,
+        private readonly ?\Closure $hasher = null,
+    ) {
     }
 
     /**
@@ -32,6 +35,18 @@ final class LinkedHashSet implements Traversable
     public static function empty(): self
     {
         return new self(LinkedHashMap::empty());
+    }
+
+    /**
+     * @template U
+     *
+     * @param \Closure(U): string $hasher
+     *
+     * @return self<U>
+     */
+    public static function emptyHashed(\Closure $hasher): self
+    {
+        return new self(LinkedHashMap::emptyHashed($hasher), $hasher);
     }
 
     /**
@@ -66,13 +81,59 @@ final class LinkedHashSet implements Traversable
     /**
      * @template U
      *
+     * @param \Closure(U): string $hasher
+     * @param U                   ...$elements
+     *
+     * @return self<U>
+     */
+    public static function ofHashed(\Closure $hasher, mixed ...$elements): self
+    {
+        return self::ofAllHashed($hasher, $elements);
+    }
+
+    /**
+     * @template U
+     *
+     * @param \Closure(U): string $hasher
+     * @param iterable<U>         $elements
+     *
+     * @return self<U>
+     */
+    public static function ofAllHashed(\Closure $hasher, iterable $elements): self
+    {
+        $set = self::emptyHashed($hasher);
+        foreach ($elements as $element) {
+            $set = $set->add($element);
+        }
+
+        return $set;
+    }
+
+    /**
+     * @template U
+     *
      * @param U $element
      *
      * @return self<T|U>
      */
     public function add(mixed $element): self
     {
-        return new self($this->map->put($element, true));
+        return new self($this->map->put($element, true), $this->widenedHasher());
+    }
+
+    /**
+     * Widens the stored hasher's parameter type to `mixed` so it can be
+     * forwarded into a `self<T|U>` (a wider element type than the hasher's
+     * own `T`) without violating closure-parameter contravariance. Purely
+     * a static-typing device — the underlying closure is unchanged.
+     *
+     * @return \Closure(mixed): string|null
+     */
+    private function widenedHasher(): ?\Closure
+    {
+        $hasher = $this->hasher;
+
+        return $hasher !== null ? static fn (mixed $element): string => $hasher($element) : null;
     }
 
     /**
@@ -80,7 +141,7 @@ final class LinkedHashSet implements Traversable
      */
     public function remove(mixed $element): self
     {
-        return new self($this->map->remove($element));
+        return new self($this->map->remove($element), $this->hasher);
     }
 
     public function contains(mixed $element): bool
@@ -138,13 +199,28 @@ final class LinkedHashSet implements Traversable
     }
 
     /**
+     * @template U
+     *
+     * @param \Closure(T): U      $mapper
+     * @param \Closure(U): string $hasher
+     *
+     * @return self<U>
+     */
+    public function mapHashed(\Closure $mapper, \Closure $hasher): self
+    {
+        return self::ofAllHashed($hasher, array_map($mapper, $this->toArray()));
+    }
+
+    /**
      * @param \Closure(T): bool $predicate
      *
      * @return self<T>
      */
     public function filter(\Closure $predicate): self
     {
-        return self::ofAll(array_values(array_filter($this->toArray(), $predicate)));
+        $filtered = array_values(array_filter($this->toArray(), $predicate));
+
+        return $this->hasher !== null ? self::ofAllHashed($this->hasher, $filtered) : self::ofAll($filtered);
     }
 
     /**

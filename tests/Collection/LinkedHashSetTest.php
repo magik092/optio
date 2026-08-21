@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Optio\Tests\Collection;
 
 use Optio\Collection\LinkedHashSet;
+use Optio\Exception\HashableContractException;
+use Optio\Tests\Stub\NotHashableStub;
 use PHPUnit\Framework\TestCase;
 
 final class LinkedHashSetTest extends TestCase
@@ -88,5 +90,59 @@ final class LinkedHashSetTest extends TestCase
         self::assertSame(2, $groups->length());
         self::assertSame([1, 2], $groups->get(0)->toArray());
         self::assertSame([3, 4], $groups->get(1)->toArray());
+    }
+
+    public function testOfHashedDeduplicatesPlainObjectsByCustomHashKeepingFirstPosition(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $set = LinkedHashSet::ofHashed(
+            $hasher,
+            new NotHashableStub('Karol', 33),
+            new NotHashableStub('Agata', 24),
+            new NotHashableStub('Karol', 33),
+        );
+
+        self::assertSame(2, $set->length());
+    }
+
+    public function testHasherSurvivesAddRemoveAndFilter(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $set = LinkedHashSet::ofHashed($hasher, new NotHashableStub('Karol', 33))
+            ->remove(new NotHashableStub('Karol', 33))
+            ->add(new NotHashableStub('Karol', 33));
+
+        // If the hasher survived remove()+add(), a duplicate add() must still dedupe.
+        self::assertSame(1, $set->add(new NotHashableStub('Karol', 33))->length());
+
+        $filtered = LinkedHashSet::ofHashed($hasher, new NotHashableStub('Karol', 33))
+            ->filter(fn ($p) => true);
+        self::assertSame(1, $filtered->add(new NotHashableStub('Karol', 33))->length());
+    }
+
+    public function testMapResetsTheHasherAndThrowsOnUnhashableResult(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $this->expectException(HashableContractException::class);
+
+        LinkedHashSet::ofHashed($hasher, new NotHashableStub('Karol', 33))
+            ->map(fn (NotHashableStub $p): NotHashableStub => new NotHashableStub($p->name, $p->age + 1));
+    }
+
+    public function testMapHashedAppliesTheNewHasherToMappedElements(): void
+    {
+        $hasher = fn (NotHashableStub $p): string => $p->name.':'.$p->age;
+
+        $set = LinkedHashSet::ofHashed($hasher, new NotHashableStub('Karol', 33))
+            ->mapHashed(
+                fn (NotHashableStub $p): NotHashableStub => new NotHashableStub($p->name, $p->age + 1),
+                $hasher,
+            )
+            ->add(new NotHashableStub('Karol', 34));
+
+        self::assertSame(1, $set->length());
     }
 }
