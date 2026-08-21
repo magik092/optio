@@ -197,6 +197,32 @@ $map = HashMap::empty()->put('a', 1)->put('b', 2)->put('c', 3);
 $map->grouped(2)->length(); // 2 windows — window membership follows hash order, not insertion order
 ```
 
+### LinkedHashMap and LinkedHashSet
+
+`LinkedHashMap`/`LinkedHashSet` iterate in insertion order — unlike
+`HashMap`/`HashSet`, whose order follows their HAMT's internal layout.
+They share the same `Hasher`/`merge()` API:
+
+```php
+use Optio\Collection\LinkedHashMap;
+use Optio\Collection\LinkedHashSet;
+
+$audit = LinkedHashMap::empty()
+    ->put('created', 'user-1')
+    ->put('approved', 'user-2');
+
+$audit->toArray(); // [Tuple2('created', 'user-1'), Tuple2('approved', 'user-2')] — in this order
+
+$roles = LinkedHashSet::of('viewer', 'editor')->add('admin');
+$roles->toArray(); // ['viewer', 'editor', 'admin']
+```
+
+Re-inserting a previously-removed key/element moves it to the **end**,
+not back to its old position — the same rule `java.util.LinkedHashMap`
+and Vavr's `LinkedHashMap` follow. `sliding()`/`grouped()`'s window order
+is also insertion order here (unlike on `HashMap`/`HashSet`, where it is
+unspecified) — this is the whole point of reaching for these classes.
+
 ### Vector and LinkedList
 
 `Vector` is an indexed sequence backed by a 32-way branching trie with
@@ -326,6 +352,10 @@ go beyond the snippets above:
 - `07_merge_basics.php` — combining `HashMap`/`HashSet` with `merge()`:
   overrides, conflict resolution via callback, unions, and how a custom
   `Hasher` interacts with merging.
+- `08_linked_hash_collections.php` — `LinkedHashMap`/`LinkedHashSet` as
+  insertion-order-preserving collections: a recently-viewed-products
+  tracker showing order preservation, the remove-then-reinsert-moves-to-
+  the-end rule, and `merge()`'s resulting order.
 
 Run any of them with `php examples/01_registration_pipeline.php`.
 
