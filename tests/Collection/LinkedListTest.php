@@ -142,4 +142,20 @@ final class LinkedListTest extends TestCase
 
         self::assertSame([1, 2, 3], $collected);
     }
+
+    public function testOfAllIgnoresKeysAndKeepsIterationOrder(): void
+    {
+        self::assertSame([1, 2, 3], LinkedList::ofAll(['x' => 1, 'y' => 2, 'z' => 3])->toArray());
+    }
+
+    public function testOfAllAcceptsAGenerator(): void
+    {
+        $generator = (static function (): \Generator {
+            yield 'a' => 1;
+            yield 'a' => 2;
+            yield 'b' => 3;
+        })();
+
+        self::assertSame([1, 2, 3], LinkedList::ofAll($generator)->toArray());
+    }
 }

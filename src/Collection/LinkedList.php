@@ -15,11 +15,8 @@ use Optio\Collection\LinkedList\Nil;
  * filter, fold, forEach) walks the chain with a plain loop, never
  * recursion, so there is no stack-depth risk while traversing regardless
  * of list length — unlike munusphp's GenericList, which this class
- * replaces. (A very deep, unbroken chain built via repeated prepend()
- * can still hit PHP's own engine-level recursive object-teardown limit
- * when finally freed — this is a PHP runtime limitation shared by any
- * Cons-cell structure, not something this library's code can avoid;
- * prefer Vector for such extreme sizes.).
+ * replaces. Freeing a list is iterative as well (see Cons::__destruct()),
+ * so arbitrarily long lists are safe to release.
  *
  * @template-covariant T = never
  *
@@ -56,12 +53,15 @@ abstract class LinkedList implements Traversable
      */
     public static function ofAll(iterable $elements): self
     {
-        $reversed = self::empty();
-        foreach ($elements as $element) {
-            $reversed = $reversed->prepend($element);
+        // Built back to front from an array, so no temporary reversed chain
+        // is allocated and freed along the way.
+        $array = is_array($elements) ? array_values($elements) : iterator_to_array($elements, false);
+        $list = self::empty();
+        for ($i = count($array) - 1; $i >= 0; --$i) {
+            $list = $list->prepend($array[$i]);
         }
 
-        return $reversed->reverse();
+        return $list;
     }
 
     abstract public function isEmpty(): bool;
