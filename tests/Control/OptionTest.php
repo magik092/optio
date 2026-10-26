@@ -176,4 +176,39 @@ final class OptionTest extends TestCase
 
         self::assertSame([false], $seen);
     }
+
+    public function testWhenTrueReturnsSomeOfSupplierResult(): void
+    {
+        $result = Option::when(true, static fn (): int => 5);
+
+        self::assertInstanceOf(Some::class, $result);
+        self::assertSame(5, $result->getOrElse(0));
+    }
+
+    public function testWhenFalseReturnsNone(): void
+    {
+        self::assertInstanceOf(None::class, Option::when(false, static fn (): int => 5));
+    }
+
+    public function testWhenFalseDoesNotCallSupplier(): void
+    {
+        $result = Option::when(false, static fn (): int => throw new \LogicException('must not be called'));
+
+        self::assertInstanceOf(None::class, $result);
+    }
+
+    public function testWhenTrueWithNullSupplierResultIsSomeNull(): void
+    {
+        $result = Option::when(true, static fn (): mixed => null);
+
+        self::assertTrue($result->isDefined());
+        self::assertSame([null], $result->toArray());
+    }
+
+    public function testWhenTrueSupplierExceptionPropagates(): void
+    {
+        $this->expectException(\RuntimeException::class);
+
+        Option::when(true, static fn (): int => throw new \RuntimeException('boom'));
+    }
 }

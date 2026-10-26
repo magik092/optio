@@ -44,6 +44,9 @@ into a list.
 ```php
 Option::some(5)->toArray();                  // [5]
 [...Option::some(1), ...Option::none()];     // [1]
+
+// the closure runs only when the condition holds
+Option::when($user->isAdmin(), fn (): array => loadAuditLog());
 ```
 
 ### Either

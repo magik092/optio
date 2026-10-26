@@ -49,6 +49,20 @@ abstract class Option implements \IteratorAggregate
         return new None();
     }
 
+    /**
+     * Some($supplier()) when $condition is true, otherwise None; $supplier is called only when $condition is true.
+     *
+     * @template U
+     *
+     * @param \Closure(): U $supplier
+     *
+     * @return self<U>
+     */
+    public static function when(bool $condition, \Closure $supplier): self
+    {
+        return $condition ? new Some($supplier()) : new None();
+    }
+
     abstract public function isDefined(): bool;
 
     /**
