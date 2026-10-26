@@ -230,13 +230,14 @@ final class TryToTest extends TestCase
     {
         $exception = new \RuntimeException('boom');
 
-        $caught = null;
+        $this->expectException(\RuntimeException::class);
+
         try {
             (new Failure($exception))->get();
-        } catch (\RuntimeException $e) {
-            $caught = $e;
-        }
+        } catch (\RuntimeException $caught) {
+            self::assertSame($exception, $caught);
 
-        self::assertSame($exception, $caught);
+            throw $caught;
+        }
     }
 }
