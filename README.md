@@ -37,6 +37,18 @@ $name = Option::of($_GET['name'] ?? null)   // null -> None, otherwise Some
     ->getOrElse('anonymous');
 ```
 
+An `Option` is also a collection of 0 or 1 elements: it is iterable and
+`toArray()` returns `[]` or `[$value]`, so optional sources can be spread
+into a list.
+
+```php
+Option::some(5)->toArray();                  // [5]
+[...Option::some(1), ...Option::none()];     // [1]
+
+// the closure runs only when the condition holds
+Option::when($user->isAdmin(), fn (): array => loadAuditLog());
+```
+
 ### Either
 
 Right-biased: `map`/`flatMap` operate on `Right`, `Left` (conventionally an
@@ -69,6 +81,16 @@ $value = TryTo::run(fn (): int => intdiv(10, 0))
         fn (int $v): string => "value: {$v}",
     );
 // "value: 0"
+```
+
+`recoverFrom()` recovers only from a given exception type (subclasses and
+interfaces included); any other `Failure` passes through. `get()` returns the
+value or rethrows the original exception.
+
+```php
+$content = TryTo::run(fn (): array => json_decode($body, true, flags: JSON_THROW_ON_ERROR))
+    ->recoverFrom(\JsonException::class, fn (): array => [])
+    ->get(); // [] for invalid JSON; any other exception is rethrown as-is
 ```
 
 ### Validation
@@ -245,6 +267,16 @@ use Optio\Collection\LinkedList;
 $list = LinkedList::of(1, 2, 3)->prepend(0);
 $list->head();     // 0
 $list->toArray();  // [0, 1, 2, 3]
+```
+
+`distinct()` and `distinctBy()` (on both `Vector` and `LinkedList`) drop
+duplicates and keep the first occurrence, in order. Equality is strict
+(`===`) and keys must be hashable (int/string/bool/float or `Hashable`).
+For other values, such as arrays, give a key extractor.
+
+```php
+Vector::of(3, 1, 3, 2)->distinct()->toArray();                 // [3, 1, 2]
+Vector::of([1], [2], [1])->distinctBy(json_encode(...))->toArray(); // [[1], [2]]
 ```
 
 ### Tuple

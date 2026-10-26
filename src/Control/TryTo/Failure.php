@@ -66,6 +66,33 @@ final class Failure extends TryTo
     }
 
     /**
+     * @template E of \Throwable
+     * @template U
+     *
+     * @param class-string<E> $exceptionClass
+     * @param \Closure(E): U  $recovery
+     *
+     * @return Success<U>|Failure
+     */
+    public function recoverFrom(string $exceptionClass, \Closure $recovery): TryTo
+    {
+        if (!$this->exception instanceof $exceptionClass) {
+            return $this;
+        }
+
+        try {
+            return new Success($recovery($this->exception));
+        } catch (\Throwable $exception) {
+            return new Failure($exception);
+        }
+    }
+
+    public function get(): never
+    {
+        throw $this->exception;
+    }
+
+    /**
      * @template U
      *
      * @param \Closure(\Throwable): U $onFailure

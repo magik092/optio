@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Optio\Tests\Collection;
 
 use Optio\Collection\Vector;
+use Optio\Exception\HashableContractException;
+use Optio\Tests\Stub\HashableStub;
 use PHPUnit\Framework\TestCase;
 
 final class VectorTest extends TestCase
@@ -145,5 +147,70 @@ final class VectorTest extends TestCase
         }
 
         self::assertSame([1, 2, 3], $collected);
+    }
+
+    public function testDistinctKeepsFirstOccurrenceOrder(): void
+    {
+        self::assertSame([3, 1, 2], Vector::of(3, 1, 3, 2, 1)->distinct()->toArray());
+    }
+
+    public function testDistinctByKeepsFirstElementWithKey(): void
+    {
+        $result = Vector::of(['id' => 1, 'v' => 'a'], ['id' => 1, 'v' => 'b'])
+            ->distinctBy(static fn (array $row): int => $row['id']);
+
+        self::assertSame([['id' => 1, 'v' => 'a']], $result->toArray());
+    }
+
+    public function testDistinctIsStrictAcrossScalarTypes(): void
+    {
+        self::assertSame([1, true, '1', 1.0], Vector::of(1, true, '1', 1.0)->distinct()->toArray());
+    }
+
+    public function testDistinctOnArraysThrowsHashableContractException(): void
+    {
+        $this->expectException(HashableContractException::class);
+
+        Vector::of([1], [1])->distinct();
+    }
+
+    public function testDistinctByJsonEncodeWorksOnArrays(): void
+    {
+        self::assertSame([[1], [2]], Vector::of([1], [2], [1])->distinctBy(json_encode(...))->toArray());
+    }
+
+    public function testDistinctWithNullElementThrowsHashableContractException(): void
+    {
+        $this->expectException(HashableContractException::class);
+
+        Vector::of(1, null)->distinct();
+    }
+
+    public function testDistinctByHashableKeyDeduplicatesEqualObjects(): void
+    {
+        $result = Vector::of(['k' => new HashableStub('x'), 'tag' => 'first'], ['k' => new HashableStub('x'), 'tag' => 'second'])
+            ->distinctBy(static fn (array $row): HashableStub => $row['k']);
+
+        self::assertSame(1, $result->length());
+        self::assertSame('first', $result->get(0)['tag']);
+    }
+
+    public function testDistinctOnEmptyAndSingleElement(): void
+    {
+        self::assertSame([], Vector::empty()->distinct()->toArray());
+        self::assertSame([7], Vector::of(7)->distinct()->toArray());
+    }
+
+    public function testDistinctLeavesOriginalUnchanged(): void
+    {
+        $original = Vector::of(1, 1, 2);
+        $original->distinct();
+
+        self::assertSame([1, 1, 2], $original->toArray());
+    }
+
+    public function testDistinctTreatsZeroAndNegativeZeroAsEqual(): void
+    {
+        self::assertSame([0.0, 1.0], Vector::of(0.0, -0.0, 1.0)->distinct()->toArray());
     }
 }

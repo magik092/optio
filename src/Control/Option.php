@@ -12,8 +12,10 @@ use Optio\Control\Option\Some;
  * by making absence explicit and composable via map/flatMap/fold.
  *
  * @template-covariant T
+ *
+ * @implements \IteratorAggregate<int, T>
  */
-abstract class Option
+abstract class Option implements \IteratorAggregate
 {
     /**
      * @template U
@@ -45,6 +47,20 @@ abstract class Option
     public static function none(): self
     {
         return new None();
+    }
+
+    /**
+     * Some($supplier()) when $condition is true, otherwise None; $supplier is called only when $condition is true.
+     *
+     * @template U
+     *
+     * @param \Closure(): U $supplier
+     *
+     * @return self<U>
+     */
+    public static function when(bool $condition, \Closure $supplier): self
+    {
+        return $condition ? new Some($supplier()) : new None();
     }
 
     abstract public function isDefined(): bool;
@@ -112,4 +128,19 @@ abstract class Option
      * @return TryTo<T>
      */
     abstract public function toTryTo(): TryTo;
+
+    /**
+     * [] for None, [$value] for Some.
+     *
+     * @return list<T>
+     */
+    abstract public function toArray(): array;
+
+    /**
+     * @return \Iterator<int, T>
+     */
+    public function getIterator(): \Iterator
+    {
+        return new \ArrayIterator($this->toArray());
+    }
 }

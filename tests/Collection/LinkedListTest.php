@@ -7,7 +7,10 @@ namespace Optio\Tests\Collection;
 use Optio\Collection\LinkedList;
 use Optio\Collection\LinkedList\Cons;
 use Optio\Collection\LinkedList\Nil;
+use Optio\Exception\HashableContractException;
 use Optio\Exception\NoSuchElementException;
+use Optio\Tests\Stub\HashableStub;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 final class LinkedListTest extends TestCase
@@ -157,5 +160,76 @@ final class LinkedListTest extends TestCase
         })();
 
         self::assertSame([1, 2, 3], LinkedList::ofAll($generator)->toArray());
+    }
+
+    public function testDistinctKeepsFirstOccurrenceOrder(): void
+    {
+        self::assertSame([3, 1, 2], LinkedList::of(3, 1, 3, 2, 1)->distinct()->toArray());
+    }
+
+    public function testDistinctByKeepsFirstElementWithKey(): void
+    {
+        $result = LinkedList::of(['id' => 1, 'v' => 'a'], ['id' => 1, 'v' => 'b'])
+            ->distinctBy(static fn (array $row): int => $row['id']);
+
+        self::assertSame([['id' => 1, 'v' => 'a']], $result->toArray());
+    }
+
+    public function testDistinctIsStrictAcrossScalarTypes(): void
+    {
+        self::assertSame([1, true, '1', 1.0], LinkedList::of(1, true, '1', 1.0)->distinct()->toArray());
+    }
+
+    public function testDistinctOnArraysThrowsHashableContractException(): void
+    {
+        $this->expectException(HashableContractException::class);
+
+        LinkedList::of([1], [1])->distinct();
+    }
+
+    public function testDistinctByJsonEncodeWorksOnArrays(): void
+    {
+        self::assertSame([[1], [2]], LinkedList::of([1], [2], [1])->distinctBy(json_encode(...))->toArray());
+    }
+
+    public function testDistinctWithNullElementThrowsHashableContractException(): void
+    {
+        $this->expectException(HashableContractException::class);
+
+        LinkedList::of(1, null)->distinct();
+    }
+
+    public function testDistinctByHashableKeyDeduplicatesEqualObjects(): void
+    {
+        $result = LinkedList::of(['k' => new HashableStub('x'), 'tag' => 'first'], ['k' => new HashableStub('x'), 'tag' => 'second'])
+            ->distinctBy(static fn (array $row): HashableStub => $row['k']);
+
+        self::assertSame(1, $result->length());
+        self::assertSame('first', $result->head()['tag']);
+    }
+
+    public function testDistinctOnEmptyAndSingleElement(): void
+    {
+        self::assertSame([], LinkedList::empty()->distinct()->toArray());
+        self::assertSame([7], LinkedList::of(7)->distinct()->toArray());
+    }
+
+    public function testDistinctLeavesOriginalUnchanged(): void
+    {
+        $original = LinkedList::of(1, 1, 2);
+        $original->distinct();
+
+        self::assertSame([1, 1, 2], $original->toArray());
+    }
+
+    #[RunInSeparateProcess]
+    public function testDistinctOnLargeListDoesNotRecurse(): void
+    {
+        self::assertSame(100_000, LinkedList::ofAll(range(1, 100_000))->distinct()->length());
+    }
+
+    public function testDistinctTreatsZeroAndNegativeZeroAsEqual(): void
+    {
+        self::assertSame([0.0, 1.0], LinkedList::of(0.0, -0.0, 1.0)->distinct()->toArray());
     }
 }

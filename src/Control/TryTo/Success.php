@@ -75,6 +75,28 @@ final class Success extends TryTo
     }
 
     /**
+     * @template E of \Throwable
+     * @template U
+     *
+     * @param class-string<E> $exceptionClass
+     * @param \Closure(E): U  $recovery
+     *
+     * @return self<T>
+     */
+    public function recoverFrom(string $exceptionClass, \Closure $recovery): TryTo
+    {
+        return $this;
+    }
+
+    /**
+     * @return T
+     */
+    public function get(): mixed
+    {
+        return $this->value;
+    }
+
+    /**
      * @template U
      *
      * @param \Closure(\Throwable): U $onFailure

@@ -67,4 +67,12 @@ final class None extends Option
     {
         return new Failure(new NoSuchElementException('Option::toTryTo() called on None'));
     }
+
+    /**
+     * @return list<never>
+     */
+    public function toArray(): array
+    {
+        return [];
+    }
 }
