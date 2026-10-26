@@ -144,4 +144,99 @@ final class TryToTest extends TestCase
     {
         self::assertInstanceOf(Left::class, (new Failure(new \RuntimeException('x')))->toEither());
     }
+
+    public function testRecoverFromMatchingExceptionGivesSuccess(): void
+    {
+        $result = (new Failure(new \JsonException('bad')))
+            ->recoverFrom(\JsonException::class, static fn (\JsonException $e): array => []);
+
+        self::assertInstanceOf(Success::class, $result);
+        self::assertSame([], $result->get());
+    }
+
+    public function testRecoverFromNonMatchingExceptionReturnsSameFailureWithoutCallingRecovery(): void
+    {
+        $failure = new Failure(new \RuntimeException('boom'));
+
+        $result = $failure->recoverFrom(\JsonException::class, static fn (): array => throw new \LogicException('must not be called'));
+
+        self::assertSame($failure, $result);
+    }
+
+    public function testRecoverFromMatchesSubclass(): void
+    {
+        $result = (new Failure(new \UnexpectedValueException()))
+            ->recoverFrom(\RuntimeException::class, static fn (): int => 1);
+
+        self::assertSame(1, $result->get());
+    }
+
+    public function testRecoverFromMatchesInterface(): void
+    {
+        $result = (new Failure(new \JsonException()))
+            ->recoverFrom(\Throwable::class, static fn (): int => 1);
+
+        self::assertSame(1, $result->get());
+    }
+
+    public function testRecoverFromOnSuccessReturnsSameSuccessWithoutCallingRecovery(): void
+    {
+        $success = new Success(5);
+
+        $result = $success->recoverFrom(\Throwable::class, static fn (): int => throw new \LogicException('must not be called'));
+
+        self::assertSame($success, $result);
+    }
+
+    public function testRecoverFromThrowingRecoveryGivesFailureWithNewException(): void
+    {
+        $thrown = new \LogicException('from recovery');
+
+        $result = (new Failure(new \JsonException()))
+            ->recoverFrom(\JsonException::class, static fn (): int => throw $thrown);
+
+        self::assertFalse($result->isSuccess());
+        self::assertSame($thrown, $result->fold(static fn (\Throwable $e): \Throwable => $e, static fn (): ?\Throwable => null));
+    }
+
+    public function testChainedRecoverFromUsesFirstMatchingClause(): void
+    {
+        $result = (new Failure(new \JsonException()))
+            ->recoverFrom(\LogicException::class, static fn (): string => 'logic')
+            ->recoverFrom(\JsonException::class, static fn (): string => 'json');
+
+        self::assertSame('json', $result->get());
+    }
+
+    public function testGetOnSuccessReturnsValue(): void
+    {
+        self::assertSame(5, (new Success(5))->get());
+    }
+
+    public function testGetOnSuccessNullReturnsNull(): void
+    {
+        self::assertNull((new Success(self::opaque(null)))->get());
+    }
+
+    /**
+     * Hides the argument's type from PHPStan so a null-returning get() isn't flagged as always-true.
+     */
+    private static function opaque(mixed $value): mixed
+    {
+        return $value;
+    }
+
+    public function testGetOnFailureRethrowsSameExceptionObject(): void
+    {
+        $exception = new \RuntimeException('boom');
+
+        $caught = null;
+        try {
+            (new Failure($exception))->get();
+        } catch (\RuntimeException $e) {
+            $caught = $e;
+        }
+
+        self::assertSame($exception, $caught);
+    }
 }

@@ -83,6 +83,16 @@ $value = TryTo::run(fn (): int => intdiv(10, 0))
 // "value: 0"
 ```
 
+`recoverFrom()` recovers only from a given exception type (subclasses and
+interfaces included); any other `Failure` passes through. `get()` returns the
+value or rethrows the original exception.
+
+```php
+$content = TryTo::run(fn (): array => json_decode($body, true, flags: JSON_THROW_ON_ERROR))
+    ->recoverFrom(\JsonException::class, fn (): array => [])
+    ->get(); // [] for invalid JSON; any other exception is rethrown as-is
+```
+
 ### Validation
 
 Like `Either`, but built for accumulating errors instead of failing fast —

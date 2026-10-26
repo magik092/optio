@@ -70,6 +70,26 @@ abstract class TryTo
     abstract public function recover(\Closure $recovery): self;
 
     /**
+     * Like recover(), but only when the exception is an instance of $exceptionClass; other Failures pass through unchanged.
+     *
+     * @template E of \Throwable
+     * @template U
+     *
+     * @param class-string<E> $exceptionClass
+     * @param \Closure(E): U  $recovery
+     *
+     * @return TryTo<T|U>
+     */
+    abstract public function recoverFrom(string $exceptionClass, \Closure $recovery): self;
+
+    /**
+     * Returns the value for Success; for Failure rethrows the stored exception (same object, not wrapped).
+     *
+     * @return T
+     */
+    abstract public function get(): mixed;
+
+    /**
      * Reduces to a single value: $onFailure is called with the exception, $onSuccess with the value.
      *
      * @template U
