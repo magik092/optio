@@ -47,17 +47,16 @@ final class LazyTest extends TestCase
     public function testGetMemoizesSupplierResult(): void
     {
         $calls = 0;
-        $lazy = Lazy::of(function () use (&$calls): int {
+        $lazy = Lazy::of(function () use (&$calls): \stdClass {
             ++$calls;
 
-            return $calls;
+            return new \stdClass();
         });
 
         $first = $lazy->get();
         $second = $lazy->get();
 
-        self::assertSame(1, $first);
-        self::assertSame(1, $second);
+        self::assertSame($first, $second);
         self::assertSame(1, $calls);
     }
 

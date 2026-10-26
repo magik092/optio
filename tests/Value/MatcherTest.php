@@ -99,6 +99,7 @@ final class MatcherTest extends TestCase
         $base = Matcher::value(Option::some(1));
         $withCase = $base->case(Some::class, fn (Some $some): string => 'some');
 
+        self::assertSame('some', $withCase->get());
         $this->expectException(MatchNotFoundException::class);
         $base->get();
     }

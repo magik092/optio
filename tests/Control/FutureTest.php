@@ -128,13 +128,7 @@ final class FutureTest extends TestCase
 
     public function testFlatMapCatchesAnExceptionThrownInsideTheMapper(): void
     {
-        $future = Future::successful(1)->flatMap(function (int $x): Future {
-            if ($x >= 0) {
-                throw new \RuntimeException('mapper blew up');
-            }
-
-            return Future::successful($x);
-        });
+        $future = Future::successful(1)->flatMap(self::throwingMapper(...));
 
         $this->expectExceptionMessage('mapper blew up');
         $future->get();
@@ -169,5 +163,13 @@ final class FutureTest extends TestCase
     {
         $exception = new \RuntimeException('bad');
         self::assertEquals(new Left($exception), Future::failed($exception)->toEither());
+    }
+
+    /**
+     * @return Future<int>
+     */
+    private static function throwingMapper(int $x): Future
+    {
+        throw new \RuntimeException("mapper blew up on {$x}");
     }
 }

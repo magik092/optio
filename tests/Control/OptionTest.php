@@ -69,14 +69,14 @@ final class OptionTest extends TestCase
 
     public function testFilterKeepsSomeWhenPredicateTrue(): void
     {
-        $result = Option::some(2)->filter(fn (int $v): bool => $v > 0);
+        $result = Option::some(2)->filter(fn (int $v): bool => true);
 
         self::assertInstanceOf(Some::class, $result);
     }
 
     public function testFilterTurnsSomeIntoNoneWhenPredicateFalse(): void
     {
-        $result = Option::some(2)->filter(fn (int $v): bool => $v < 0);
+        $result = Option::some(2)->filter(fn (int $v): bool => false);
 
         self::assertInstanceOf(None::class, $result);
     }
@@ -128,6 +128,6 @@ final class OptionTest extends TestCase
     {
         $option = Option::some(2);
 
-        self::assertSame($option, $option->filter(fn (int $v): bool => $v > 0));
+        self::assertSame($option, $option->filter(fn (int $v): bool => true));
     }
 }

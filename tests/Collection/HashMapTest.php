@@ -409,7 +409,7 @@ final class HashMapTest extends TestCase
     public function testMergeWithCallbackResolvesConflictsOnly(): void
     {
         $left = HashMap::empty()->put('a', 1)->put('b', 10);
-        $right = HashMap::empty()->put('a', 2)->put('c', 100);
+        $right = HashMap::empty()->put('a', self::int(2))->put('c', self::int(100));
 
         $merged = $left->merge($right, fn (int $leftValue, int $rightValue): int => $leftValue + $rightValue);
 
@@ -469,8 +469,8 @@ final class HashMapTest extends TestCase
 
         $left = HashMap::emptyHashed($targetHasher);
         $right = HashMap::emptyHashed($identityHasher)
-            ->put($keyA, 'first')
-            ->put($keyB, 'second');
+            ->put($keyA, self::string('first'))
+            ->put($keyB, self::string('second'));
 
         // Sanity check: under $right's own (identity-based) hasher, both entries are kept.
         self::assertSame(2, $right->length());
@@ -483,5 +483,21 @@ final class HashMapTest extends TestCase
         // never held this key and $other's own hasher never saw a collision at all.
         self::assertSame(1, $merged->length());
         self::assertContains($merged->get($keyA)->getOrElse('missing'), ['first+second', 'second+first']);
+    }
+
+    /**
+     * Widens a literal so PHPStan types the map's values as int rather than the literal itself.
+     */
+    private static function int(int $value): int
+    {
+        return $value;
+    }
+
+    /**
+     * Widens a literal so PHPStan types the map's values as string rather than the literal itself.
+     */
+    private static function string(string $value): string
+    {
+        return $value;
     }
 }
