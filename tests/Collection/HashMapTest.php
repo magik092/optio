@@ -485,6 +485,11 @@ final class HashMapTest extends TestCase
         self::assertContains($merged->get($keyA)->getOrElse('missing'), ['first+second', 'second+first']);
     }
 
+    public function testNegativeZeroFindsValueStoredUnderZero(): void
+    {
+        self::assertSame('x', HashMap::empty()->put(0.0, 'x')->get(-0.0)->getOrElse('missing'));
+    }
+
     /**
      * Widens a literal so PHPStan types the map's values as int rather than the literal itself.
      */

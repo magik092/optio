@@ -77,4 +77,9 @@ final class ComparatorHashTest extends TestCase
 
         Comparator::hash(null);
     }
+
+    public function testHashOfNegativeZeroEqualsHashOfZero(): void
+    {
+        self::assertSame(Comparator::hash(0.0), Comparator::hash(-0.0));
+    }
 }
