@@ -381,4 +381,10 @@ final class HashSetTest extends TestCase
         $this->expectException(HashableContractException::class);
         $left->merge($right);
     }
+
+    public function testZeroAndNegativeZeroAreOneElement(): void
+    {
+        self::assertSame(1, HashSet::of(0.0, -0.0)->length());
+        self::assertTrue(HashSet::of(0.0)->contains(-0.0));
+    }
 }

@@ -54,7 +54,8 @@ final class Comparator
         }
 
         if (is_float($value)) {
-            return crc32((string) $value);
+            // -0.0 === 0.0, but (string) -0.0 is "-0"; adding 0.0 turns -0.0 into 0.0
+            return crc32((string) ($value + 0.0));
         }
 
         if ($value instanceof Hashable) {
