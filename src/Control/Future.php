@@ -509,9 +509,9 @@ final class Future
      */
     public function zip(self $other): self
     {
-        return $this->flatMap(fn (mixed $value): self => $other->map(
-            fn (mixed $otherValue): Tuple2 => new Tuple2($value, $otherValue),
-        ));
+        return $this->flatMap(function (mixed $value) use ($other): self {
+            return $other->map(fn (mixed $otherValue): Tuple2 => new Tuple2($value, $otherValue));
+        });
     }
 
     /**
@@ -570,11 +570,9 @@ final class Future
             return $next;
         }
 
-        return $first->flatMap(
-            fn (mixed $value): self => self::sequenceList($rest)->map(
-                fn (array $tail): array => self::prepend($value, $tail),
-            ),
-        );
+        return $first->flatMap(function (mixed $value) use ($rest): self {
+            return self::sequenceList($rest)->map(fn (array $tail): array => self::prepend($value, $tail));
+        });
     }
 
     /**

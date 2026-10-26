@@ -350,7 +350,7 @@ final class LinkedHashMapTest extends TestCase
     public function testMergeWithCallbackResolvesConflictsOnly(): void
     {
         $left = LinkedHashMap::empty()->put('a', 1)->put('b', 10);
-        $right = LinkedHashMap::empty()->put('a', 2)->put('c', 100);
+        $right = LinkedHashMap::empty()->put('a', self::int(2))->put('c', self::int(100));
 
         $merged = $left->merge($right, fn (int $l, int $r): int => $l + $r);
 
@@ -371,5 +371,13 @@ final class LinkedHashMapTest extends TestCase
 
         self::assertSame(1, $merged->length());
         self::assertSame('right', $merged->get(new NotHashableStub('Karol', 33))->getOrElse('missing'));
+    }
+
+    /**
+     * Widens a literal so PHPStan types the map's values as int rather than the literal itself.
+     */
+    private static function int(int $value): int
+    {
+        return $value;
     }
 }
