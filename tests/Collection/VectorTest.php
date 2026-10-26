@@ -208,4 +208,9 @@ final class VectorTest extends TestCase
 
         self::assertSame([1, 1, 2], $original->toArray());
     }
+
+    public function testDistinctTreatsZeroAndNegativeZeroAsEqual(): void
+    {
+        self::assertSame([0.0, 1.0], Vector::of(0.0, -0.0, 1.0)->distinct()->toArray());
+    }
 }

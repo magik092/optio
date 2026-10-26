@@ -10,6 +10,7 @@ use Optio\Collection\LinkedList\Nil;
 use Optio\Exception\HashableContractException;
 use Optio\Exception\NoSuchElementException;
 use Optio\Tests\Stub\HashableStub;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 final class LinkedListTest extends TestCase
@@ -221,8 +222,14 @@ final class LinkedListTest extends TestCase
         self::assertSame([1, 1, 2], $original->toArray());
     }
 
+    #[RunInSeparateProcess]
     public function testDistinctOnLargeListDoesNotRecurse(): void
     {
-        self::assertSame(50_000, LinkedList::ofAll(range(1, 50_000))->distinct()->length());
+        self::assertSame(100_000, LinkedList::ofAll(range(1, 100_000))->distinct()->length());
+    }
+
+    public function testDistinctTreatsZeroAndNegativeZeroAsEqual(): void
+    {
+        self::assertSame([0.0, 1.0], LinkedList::of(0.0, -0.0, 1.0)->distinct()->toArray());
     }
 }
