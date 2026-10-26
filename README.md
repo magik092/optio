@@ -269,6 +269,16 @@ $list->head();     // 0
 $list->toArray();  // [0, 1, 2, 3]
 ```
 
+`distinct()` and `distinctBy()` drop duplicates and keep the first occurrence,
+in order. Equality is strict (`===`) and keys must be hashable
+(int/string/bool/float or `Hashable`). For other values, such as arrays,
+give a key extractor.
+
+```php
+Vector::of(3, 1, 3, 2)->distinct()->toArray();                 // [3, 1, 2]
+Vector::of([1], [2], [1])->distinctBy(json_encode(...))->toArray(); // [[1], [2]]
+```
+
 ### Tuple
 
 `Tuple0` through `Tuple8`, accessed either positionally (`ArrayAccess`) or

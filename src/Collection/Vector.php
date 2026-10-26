@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Optio\Collection;
 
+use Optio\Collection\Internal\Distinct;
 use Optio\Collection\Internal\Sliding;
 use Optio\Collection\Vector\Leaf;
 use Optio\Collection\Vector\Node;
@@ -182,6 +183,30 @@ final class Vector implements Traversable
     public function filter(\Closure $predicate): self
     {
         return self::ofAll(array_values(array_filter($this->toArray(), $predicate)));
+    }
+
+    /**
+     * Elements without duplicates (by Comparator::equals()/hash()), in order of first occurrence.
+     *
+     * @return self<T>
+     */
+    public function distinct(): self
+    {
+        return $this->distinctBy(static fn (mixed $element): mixed => $element);
+    }
+
+    /**
+     * Elements whose key $keyExtractor($element) occurs for the first time; later elements with the same key are dropped.
+     *
+     * @template K
+     *
+     * @param \Closure(T): K $keyExtractor
+     *
+     * @return self<T>
+     */
+    public function distinctBy(\Closure $keyExtractor): self
+    {
+        return self::ofAll(Distinct::by($this->toArray(), $keyExtractor));
     }
 
     /**
