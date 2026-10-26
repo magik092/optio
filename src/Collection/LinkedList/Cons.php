@@ -15,6 +15,21 @@ use Optio\Collection\LinkedList;
  */
 final class Cons extends LinkedList
 {
+    /**
+     * Freeing a cell used to free its rest from inside the engine's own
+     * destructor, one nested call per cell, which overflowed the C stack on
+     * long chains. Instead, each cell hands its rest to this queue and
+     * detaches it; the outermost destructor then drains the queue in a
+     * loop, so cells are freed one at a time at constant stack depth.
+     * Shared tails are safe: the queue only holds a reference, so a tail
+     * still used by another list survives being popped.
+     *
+     * @var list<LinkedList<mixed>>
+     */
+    private static array $pending = [];
+
+    private static bool $draining = false;
+
     private readonly int $size;
 
     /**
@@ -23,7 +38,7 @@ final class Cons extends LinkedList
      */
     public function __construct(
         private readonly mixed $value,
-        private readonly LinkedList $rest,
+        private LinkedList $rest,
     ) {
         $this->size = 1 + $rest->length();
     }
@@ -51,5 +66,20 @@ final class Cons extends LinkedList
     public function prepend(mixed $value): LinkedList
     {
         return new self($value, $this);
+    }
+
+    public function __destruct()
+    {
+        self::$pending[] = $this->rest;
+        unset($this->rest);
+        if (self::$draining) {
+            return;
+        }
+
+        self::$draining = true;
+        while (self::$pending !== []) {
+            array_pop(self::$pending);
+        }
+        self::$draining = false;
     }
 }
