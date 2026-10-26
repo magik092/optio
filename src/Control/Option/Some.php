@@ -71,4 +71,12 @@ final class Some extends Option
     {
         return new Success($this->value);
     }
+
+    /**
+     * @return list<T>
+     */
+    public function toArray(): array
+    {
+        return [$this->value];
+    }
 }

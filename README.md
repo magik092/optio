@@ -37,6 +37,15 @@ $name = Option::of($_GET['name'] ?? null)   // null -> None, otherwise Some
     ->getOrElse('anonymous');
 ```
 
+An `Option` is also a collection of 0 or 1 elements: it is iterable and
+`toArray()` returns `[]` or `[$value]`, so optional sources can be spread
+into a list.
+
+```php
+Option::some(5)->toArray();                  // [5]
+[...Option::some(1), ...Option::none()];     // [1]
+```
+
 ### Either
 
 Right-biased: `map`/`flatMap` operate on `Right`, `Left` (conventionally an

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Optio\Tests\Control;
 
+use Optio\Collection\Vector;
 use Optio\Control\Option;
 use Optio\Control\Option\None;
 use Optio\Control\Option\Some;
@@ -129,5 +130,50 @@ final class OptionTest extends TestCase
         $option = Option::some(2);
 
         self::assertSame($option, $option->filter(fn (int $v): bool => true));
+    }
+
+    public function testToArrayOnNoneIsEmpty(): void
+    {
+        self::assertSame([], Option::none()->toArray());
+    }
+
+    public function testToArrayOnSomeIsSingletonList(): void
+    {
+        self::assertSame([5], Option::some(5)->toArray());
+    }
+
+    public function testToArrayOnSomeNullKeepsNull(): void
+    {
+        self::assertSame([null], Option::some(null)->toArray());
+    }
+
+    public function testSpreadSkipsNoneAndKeepsSomeInOrder(): void
+    {
+        self::assertSame([1, 2], [...Option::some(1), ...Option::none(), ...Option::some(2)]);
+    }
+
+    public function testVectorOfAllAcceptsOption(): void
+    {
+        self::assertSame(['a'], Vector::ofAll(Option::some('a'))->toArray());
+    }
+
+    public function testForeachOverNoneDoesNotRunBody(): void
+    {
+        $runs = 0;
+        foreach (Option::none() as $_) {
+            ++$runs;
+        }
+
+        self::assertSame(0, $runs);
+    }
+
+    public function testForeachOverSomeFalsyValueRunsBodyOnceWithThatValue(): void
+    {
+        $seen = [];
+        foreach (Option::some(false) as $value) {
+            $seen[] = $value;
+        }
+
+        self::assertSame([false], $seen);
     }
 }
